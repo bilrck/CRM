@@ -1,0 +1,121 @@
+"use client";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {  ResponsiveContainer, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import {
+  MessageCircle,
+  CircleDollarSign,
+  MousePointerClick,
+  MessagesSquare,
+} from "lucide-react";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltipContent,
+  ChartTooltip,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
+
+const chartData = [
+  { month: "January", Leads: 186, Vendas: 80 },
+  { month: "February", Leads: 305, Vendas: 200 },
+  { month: "March", Leads: 237, Vendas: 120 },
+  { month: "April", Leads: 73, Vendas: 190 },
+  { month: "May", Leads: 209, Vendas: 130 },
+  { month: "June", Leads: 214, Vendas: 140 },
+];
+
+const chartConfig = {
+  Leads: {
+    label: "Leads",
+    color: "#2563eb",
+  },
+  Vendas: {
+    label: "Vendas",
+    color: "#60a5fa",
+  },
+} satisfies ChartConfig;
+
+export default function Dashboard() {
+  return (
+    <div className="max-h-full p-4 w-full md:max-w-[90%]">
+      <ResizablePanelGroup direction="vertical">
+        <div className="rounded-lg bg-white">
+          <ResizablePanel defaultSize={50}>
+            <ResizablePanelGroup direction="horizontal" className="gap-4 p-6">
+              <ResizablePanel>
+                <div className="flex flex-wrap size-full items-center justify-center">
+                  <div className="bg-red-200 rounded-full text-red-400 p-2 text-center mr-3">
+                    <MessagesSquare className="size-8" />
+                  </div>
+                  <div className="text-center text-wrap">
+                    <span className="text-gray-400">Conversas Iniciada</span>
+                    <p className="font-bold break-all">R$0000.0000</p>
+                  </div>
+                </div>
+              </ResizablePanel>
+              <ResizablePanel>
+                <div className="flex flex-wrap size-full items-center justify-center">
+                  <div className="bg-cyan-200 rounded-full text-cyan-400 p-2 text-center mr-3">
+                    <MousePointerClick className="size-8" />
+                  </div>
+                  <div className="text-center text-wrap">
+                    <span className="text-gray-400">Total de Clicks</span>
+                    <p className="font-bold break-all">R$0000.0000</p>
+                  </div>
+                </div>
+              </ResizablePanel>
+              <ResizablePanel>
+                <div className="flex flex-wrap h-full items-center justify-center">
+                  <div className="bg-green-200 rounded-full text-green-400 p-2 text-center mr-3">
+                    <CircleDollarSign className="size-8" />
+                  </div>
+                  <div className="text-center text-wrap">
+                    <span className="text-gray-400">Total Investido</span>
+                    <p className="font-bold break-all">R$0000.0000</p>
+                  </div>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </div>
+
+        <div className="mt-5 mb- 5 size-full">
+          <ResizablePanel defaultSize={50}>
+            {/* Importante: div com altura definida */}
+            <div className="bg-white h-[300px] rounded-lg p-4">
+              <ChartContainer config={chartConfig} className="size-full">
+                  <BarChart data={chartData}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      tickMargin={10}
+                      axisLine={false}
+                      tickFormatter={(value) => value.slice(0, 3)}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar
+                      dataKey="Leads"
+                      fill="var(--color-Leads)"
+                      radius={4}
+                    />
+                    <Bar
+                      dataKey="Vendas"
+                      fill="var(--color-Vendas)"
+                      radius={4}
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </BarChart>
+              </ChartContainer>
+            </div>
+          </ResizablePanel>
+        </div>
+      </ResizablePanelGroup>
+    </div>
+  );
+}
