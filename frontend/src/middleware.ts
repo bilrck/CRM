@@ -14,8 +14,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Se tiver token → bloquear acesso à página de login
-  if (token && isAuthPage) {
+  // Se tiver token e estiver na Home, manda pro Dashboard (Opcional)
+  if (token && req.nextUrl.pathname === "/") {
     const dashboardUrl = new URL("/dashboard", req.url);
     return NextResponse.redirect(dashboardUrl);
   }

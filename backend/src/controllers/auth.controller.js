@@ -136,6 +136,8 @@ export const login = async (req, res) => {
       cookieOptions.domain = process.env.COOKIE_DOMAIN;
     }
 
+    // Limpa qualquer cookie antigo antes de definir o novo (previne sobreposição de contas)
+    res.clearCookie("token", cookieOptions);
     res.cookie("token", token, cookieOptions);
 
     const { password: _, ...rest } = user;

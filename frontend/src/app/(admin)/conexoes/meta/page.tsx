@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,8 +43,8 @@ export default function MetaIntegrationPage() {
     const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
     const [activeMappingForm, setActiveMappingForm] = useState<any>(null);
     const [mappingConfig, setMappingConfig] = useState({ funnelId: "", stageId: "" });
-    const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
-    const [connectForm, setConnectForm] = useState({ accessToken: "", fbUserId: "", name: "Minha Conta Facebook" });
+    const [connectingOAuth, setConnectingOAuth] = useState(false);
+    const searchParams = useSearchParams();
 
     // Fetch initial data
     useEffect(() => {
@@ -65,38 +66,44 @@ export default function MetaIntegrationPage() {
         fetchData();
     }, []);
 
-    const handleConnect = () => {
-        setConnectForm({ accessToken: "", fbUserId: "", name: "Minha Conta Facebook" });
-        setIsConnectDialogOpen(true);
-    };
-
-    const onConnectSubmit = async () => {
-        if (!connectForm.accessToken || !connectForm.fbUserId) {
-            toast.error("Preencha todos os campos obrigatórios");
-            return;
+    // Handle OAuth callback result from URL params
+    useEffect(() => {
+        const success = searchParams.get("success");
+        const error = searchParams.get("error");
+        const name = searchParams.get("pages");
+        if (success === "1") {
+            toast.success(`Conta "${name || 'Meta'}" conectada com sucesso!`);
+            // Reload pages after successful connect
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/pages`, { credentials: "include" })
+                .then(r => r.ok ? r.json() : [])
+                .then(setPages);
+        } else if (error) {
+            const msgs: Record<string, string> = {
+                facebook_denied: "Permissão negada pelo Facebook.",
+                token_exchange_failed: "Falha ao trocar o token. Verifique as configurações do App Meta.",
+                user_info_failed: "Não foi possível obter informações do usuário Meta.",
+                server_error: "Erro interno do servidor ao conectar.",
+                invalid_callback: "Callback inválido. Tente novamente.",
+            };
+            toast.error(msgs[error] || "Erro ao conectar com a Meta.");
         }
-        await saveConnection(connectForm.accessToken, connectForm.fbUserId, connectForm.name);
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const saveConnection = async (accessToken: string, fbUserId: string, name: string = "Minha Conta Facebook") => {
+    const handleConnect = async () => {
+        setConnectingOAuth(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/connect`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ accessToken, fbUserId, name }),
-                credentials: "include"
-            });
-
-            if (res.ok) {
-                toast.success("Conectado com sucesso!");
-                window.location.reload();
-            } else {
-                toast.error("Erro ao conectar");
-            }
-        } catch (error) {
-            toast.error("Erro no servidor");
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/oauth/url`, { credentials: "include" });
+            if (!res.ok) throw new Error("Falha ao obter URL de autenticação");
+            const { url } = await res.json();
+            window.location.href = url;
+        } catch (err: any) {
+            toast.error(err.message || "Erro ao iniciar conexão com a Meta");
+            setConnectingOAuth(false);
         }
     };
+
+
 
     const togglePageSync = async (pageId: number, isConnected: boolean) => {
         try {
@@ -183,9 +190,13 @@ export default function MetaIntegrationPage() {
                 </div>
                 <Button 
                     onClick={handleConnect}
+                    disabled={connectingOAuth}
                     className="bg-blue-600 hover:bg-blue-700 h-12 px-6 text-lg font-semibold shadow-lg shadow-blue-200"
                 >
-                    <RefreshCw className="mr-2 h-5 w-5" /> Conectar Nova Conta
+                    {connectingOAuth 
+                        ? <RefreshCw className="animate-spin mr-2 h-5 w-5" /> 
+                        : <Facebook className="mr-2 h-5 w-5" />}
+                    {connectingOAuth ? "Redirecionando..." : pages.length > 0 ? "Reconectar Conta" : "Conectar com Facebook"}
                 </Button>
             </div>
 
@@ -464,55 +475,6 @@ export default function MetaIntegrationPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Connect Account Dialog */}
-            <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Facebook className="text-blue-600" size={20} />
-                            Conectar Conta Meta
-                        </DialogTitle>
-                        <DialogDescription>
-                            Insira suas credenciais da Meta para sincronizar suas páginas e Lead Ads.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="acc_name">Nome da Identificação</Label>
-                            <Input 
-                                id="acc_name"
-                                placeholder="Ex: Minha Conta Business"
-                                value={connectForm.name}
-                                onChange={(e) => setConnectForm({ ...connectForm, name: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="fb_id">Meta User ID</Label>
-                            <Input 
-                                id="fb_id"
-                                placeholder="ID do usuário (ex: 1000...)"
-                                value={connectForm.fbUserId}
-                                onChange={(e) => setConnectForm({ ...connectForm, fbUserId: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="access_token">User Access Token</Label>
-                            <Input 
-                                id="access_token"
-                                type="password"
-                                placeholder="EAAG..."
-                                value={connectForm.accessToken}
-                                onChange={(e) => setConnectForm({ ...connectForm, accessToken: e.target.value })}
-                            />
-                            <p className="text-[10px] text-gray-400">Obtenha o token no Portal de Desenvolvedores da Meta.</p>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsConnectDialogOpen(false)}>Cancelar</Button>
-                        <Button onClick={onConnectSubmit} className="bg-blue-600 hover:bg-blue-700">Conectar Agora</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

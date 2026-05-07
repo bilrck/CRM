@@ -56,20 +56,6 @@ export const subscribePageToWebhooks = async (pageId, pageAccessToken) => {
   }
 };
 
-/**
- * Fetches Lead Forms for a given Page.
- */
-export const getPageForms = async (pageId, pageAccessToken) => {
-  try {
-    const data = await request(
-      `${FB_GRAPH_URL}/${pageId}/leadgen_forms?access_token=${pageAccessToken}&limit=100`,
-    );
-    return data.data;
-  } catch (error) {
-    console.error("Meta getPageForms error:", error.message);
-    throw error;
-  }
-};
 
 /**
  * Fetches detailed content for a specific Lead.
@@ -131,6 +117,67 @@ export const formatCapiEvent = (eventName, email, phone, externalId) => {
 };
 
 /**
+ * Lists the Ad Accounts the user has access to.
+ */
+export const getAdAccounts = async (userAccessToken) => {
+  try {
+    const data = await request(
+      `${FB_GRAPH_URL}/me/adaccounts?access_token=${userAccessToken}&fields=name,account_id,id,currency,account_status,amount_spent&limit=100`,
+    );
+    return data.data;
+  } catch (error) {
+    console.error("Meta getAdAccounts error:", error.message);
+    throw error;
+  }
+};
+
+/**
+ * Lists campaigns for a specific Ad Account.
+ */
+export const getCampaigns = async (adAccountId, accessToken) => {
+  try {
+    const data = await request(
+      `${FB_GRAPH_URL}/${adAccountId}/campaigns?access_token=${accessToken}&fields=name,status,objective,start_time,stop_time,id&limit=100`,
+    );
+    return data.data;
+  } catch (error) {
+    console.error("Meta getCampaigns error:", error.message);
+    throw error;
+  }
+};
+
+/**
+ * Fetches insights (metrics) for a campaign, ad set, or ad.
+ */
+export const getInsights = async (objectId, accessToken, range = "last_30d") => {
+  try {
+    // range can be: today, yesterday, last_7d, last_30d, this_month, last_month
+    const data = await request(
+      `${FB_GRAPH_URL}/${objectId}/insights?access_token=${accessToken}&date_preset=${range}&fields=impressions,clicks,spend,reach,actions,conversions,cost_per_conversion`,
+    );
+    return data.data[0] || null;
+  } catch (error) {
+    console.error("Meta getInsights error:", error.message);
+    throw error;
+  }
+};
+
+/**
+ * Fetches Lead Forms for a given Page.
+ */
+export const getPageForms = async (pageId, pageAccessToken) => {
+  try {
+    const data = await request(
+      `${FB_GRAPH_URL}/${pageId}/leadgen_forms?access_token=${pageAccessToken}&fields=id,name,status,created_time,leads_count&limit=100`,
+    );
+    return data.data;
+  } catch (error) {
+    console.error("Meta getPageForms error:", error.message);
+    throw error;
+  }
+};
+
+/**
  * Validates if a token is effective. (Used by legacy connections flow)
  */
 export const validateMetaToken = async (accessToken) => {
@@ -143,17 +190,21 @@ export const validateMetaToken = async (accessToken) => {
 };
 
 /**
- * Fetches metrics for a connection. (Used by legacy connections flow)
+ * Fetches metrics for a connection.
  */
-export const getMetaMetrics = async (accessToken, pixelId) => {
+export const getMetaMetrics = async (accessToken, adAccountId = null) => {
   try {
-    // This is a placeholder or basic implementation for the legacy metrics sync
+    if (!adAccountId) return { leads: 0, gastos: "R$ 0", conversoes: 0 };
+
+    const insights = await getInsights(adAccountId, accessToken, "this_month");
+    if (!insights) return { leads: 0, gastos: "R$ 0", conversoes: 0 };
+
     return {
-      leads: 0,
-      gastos: "R$ 0",
-      conversoes: 0,
+      leads: insights.conversions || 0,
+      gastos: `R$ ${parseFloat(insights.spend || 0).toLocaleString("pt-BR")}`,
+      conversoes: insights.actions?.find((a) => a.action_type === "lead")?.value || 0,
     };
   } catch (error) {
-    return null;
+    return { leads: 0, gastos: "R$ 0", conversoes: 0 };
   }
 };
