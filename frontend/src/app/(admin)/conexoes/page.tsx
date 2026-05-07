@@ -153,7 +153,12 @@ export default function Conexoes() {
   }, []);
 
   async function handleSaveConfiguration(): Promise<void> {
-    try{
+    if (!selectedIntegration) {
+        toast.error("Nenhuma integração selecionada");
+        return;
+    }
+
+    try {
         // Validação básica cliente side
         if (selectedIntegration?.provider === 'facebook' && !apiSecret) {
              toast.error("Token necessário");

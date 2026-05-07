@@ -1,11 +1,13 @@
 "use client";
 import { useSearchParams, useRouter } from "next/navigation";
-export default function AcceptInvitePage() {
-const params = useSearchParams();
-  const router = useRouter();
-  const token = params.get("token");
+import { Suspense } from "react";
 
-  async function handleSubmit(e) {
+function AcceptInviteContent() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const token = params?.get("token");
+
+  async function handleSubmit(e: any) {
     e.preventDefault();
     const name = e.target.name.value;
     const password = e.target.password.value;
@@ -23,6 +25,7 @@ const params = useSearchParams();
 
     router.push("/dashboard");
   }
+
   return (
     <div className="flex items-center justify-center h-screen">
       <form onSubmit={handleSubmit} className="p-6 max-w-lg mx-auto">
@@ -47,5 +50,13 @@ const params = useSearchParams();
         </button>
       </form>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Carregando...</div>}>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }

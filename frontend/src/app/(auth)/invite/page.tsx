@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-export default function InvitePage() {
+function InviteContent() {
   const params = useSearchParams();
   const router = useRouter();
-  const token = params.get("token");
+  const token = params?.get("token");
 
   const [loading, setLoading] = useState(true);
-  const [invite, setInvite] = useState(null);
+  const [invite, setInvite] = useState<any>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -26,8 +26,8 @@ export default function InvitePage() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  if (loading) return <p>Validando convite...</p>;
-  if (error) return <p>{error}</p>;
+  if (loading) return <p className="p-6">Validando convite...</p>;
+  if (error) return <p className="p-6 text-red-500">{error}</p>;
 
   return (
     <div className="p-6 max-w-lg mx-auto">
@@ -60,5 +60,13 @@ export default function InvitePage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense fallback={<p className="p-6">Carregando convite...</p>}>
+      <InviteContent />
+    </Suspense>
   );
 }
