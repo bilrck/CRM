@@ -81,7 +81,7 @@ export const register = async (req, res) => {
       data: {
         name: `Workspace de ${name}`,
         ownerId: user.id,
-        memberships: {
+        members: {
           create: {
             userId: user.id,
             role: "OWNER"
