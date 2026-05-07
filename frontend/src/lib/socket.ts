@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 
-const socketUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.0.23:3001";
+const socketUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 // Singleton socket instance
 export const socket: Socket = io(socketUrl, {

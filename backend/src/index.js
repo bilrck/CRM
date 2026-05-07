@@ -53,8 +53,6 @@ app.use(
       "http://localhost:3001",
       "http://127.0.0.1:3000",
       "http://127.0.0.1:3001",
-      "http://192.168.0.23:3000",
-      "http://192.168.0.23:3001",
       process.env.FRONTEND_URL,
     ].filter(Boolean),
     credentials: true,
@@ -120,7 +118,8 @@ app.use("/", authMiddleware, subscriptionMiddleware, connectionRoutes);
 const server = http.createServer(app);
 
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Rastreia AI - Server running on port ${PORT}`);
+  if (process.env.API_URL) console.log(`🔗 API URL: ${process.env.API_URL}`);
 });
 
 import { initSocket } from "./services/socket.service.js";
