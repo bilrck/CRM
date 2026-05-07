@@ -126,11 +126,6 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       return;
     }
 
-    // 4. Extract standard fields
-    let name = "Lead Meta";
-    let email = null;
-    let phone = null;
-
     for (const field of rawLead.field_data) {
       const fieldName = field.name.toLowerCase();
       const value = field.values[0];
@@ -138,6 +133,31 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       if (fieldName === "full_name" || fieldName === "name") name = value;
       if (fieldName === "email") email = value;
       if (fieldName === "phone_number" || fieldName === "phone") phone = value;
+    }
+
+    const cleanPhone = phone ? phone.replace(/\D/g, "") : null;
+
+    // 4.1 Advanced Configuration: Deduplication
+    const config = page.metaConnection.config || {};
+    if (config.ignoreDuplicates) {
+      const windowHours = config.duplicateWindowHours || 24;
+      const startTime = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+
+      const duplicate = await prisma.lead.findFirst({
+        where: {
+          workspaceId: page.metaConnection.workspaceId,
+          createdAt: { gte: startTime },
+          OR: [
+            email ? { email } : undefined,
+            cleanPhone ? { phone: cleanPhone } : undefined,
+          ].filter(Boolean),
+        },
+      });
+
+      if (duplicate) {
+        console.log(`ℹ️ Lead duplicado (mesmo email/fone) detectado e ignorado: ${name}`);
+        return;
+      }
     }
 
     // 5. Build Base Lead Data

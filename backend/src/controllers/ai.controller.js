@@ -1,6 +1,7 @@
 import prisma from "../config/prisma.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
+import * as metaService from "../services/meta.service.js";
 
 export const getAiSettings = async (req, res) => {
   try {
@@ -78,10 +79,20 @@ export const chat = async (req, res) => {
     };
 
     try {
-      const [allLeads, userConnections, userData] = await Promise.all([
+      const [allLeads, userConnections, userData, metaConnection] = await Promise.all([
         prisma.lead.findMany({ where: { ownerId: userId } }),
         prisma.connection.findMany({ where: { userId } }),
-        prisma.user.findUnique({ where: { id: userId } })
+        prisma.user.findUnique({ where: { id: userId } }),
+        prisma.metaConnection.findFirst({
+          where: { workspaceId: req.workspaceId },
+          include: {
+            pages: {
+              include: {
+                leadForms: { include: { _count: { select: { leads: true } } } }
+              }
+            }
+          }
+        })
       ]);
 
       leads = allLeads.slice(0, 15);
@@ -93,25 +104,72 @@ export const chat = async (req, res) => {
       allLeads.forEach(l => {
         metrics.leadsByStatus[l.status] = (metrics.leadsByStatus[l.status] || 0) + 1;
       });
+
+      // Build Meta context string
+      let metaContext = "";
+      if (metaConnection) {
+        const pagesInfo = metaConnection.pages.map(p => {
+          const formsSummary = p.leadForms.map(f =>
+            `    - Formulário "${f.name}": ${f._count?.leads || 0} leads`
+          ).join("\n");
+          return `  - Página: ${p.name} (${p.isConnected ? "sincronizada" : "não sincronizada"})\n${formsSummary}`;
+        }).join("\n");
+
+        const totalMetaLeads = metaConnection.pages.reduce((sum, p) =>
+          sum + p.leadForms.reduce((s, f) => s + (f._count?.leads || 0), 0), 0
+        );
+
+        metaContext = `
+      META ADS (Conta: ${metaConnection.name}):
+      - Total de leads capturados via formulários Meta: ${totalMetaLeads}
+      - Páginas conectadas: ${metaConnection.pages.length}
+${pagesInfo}`;
+
+        // 🔥 Dynamic Context: Fetch live report summary ONLY if user asks about Ads/Finance
+        const adKeywords = ["anúncio", "campanha", "gasto", "meta", "facebook", "ads", "performance", "ctr", "investimento"];
+        if (adKeywords.some(k => message.toLowerCase().includes(k))) {
+          try {
+            const liveReport = await metaService.getMetaReport(metaConnection.accessToken, "this_month");
+            const activeCampaigns = liveReport.campaigns.filter(c => c.status === "ACTIVE");
+            
+            metaContext += `
+      LIVE REPORT (Este mês):
+      - Gasto Total: R$ ${liveReport.totalSpend.toFixed(2)}
+      - Cliques: ${liveReport.totalClicks} | Impressões: ${liveReport.totalImpressions}
+      - Leads Reportados pela Meta: ${liveReport.totalLeads}
+      - Campanhas Ativas (${activeCampaigns.length}):
+        ${activeCampaigns.slice(0, 5).map(c => `  * ${c.name}: R$ ${parseFloat(c.insights?.spend || 0).toFixed(2)} gasto`).join("\n")}
+      `;
+          } catch (liveError) {
+            console.warn("Could not fetch live report for AI context:", liveError.message);
+          }
+        } else {
+          metaContext += `\n      - Para dados financeiros detalhados (gastos, campanhas, CTR), o usuário pode acessar /relatorios/meta`;
+        }
+      }
+
+      // Store metaContext in metrics for use below
+      metrics.metaContext = metaContext;
     } catch (dbError) {
       console.error("Erro ao buscar contexto para IA:", dbError);
     }
 
     const context = `
       DADOS DO SISTEMA (USUÁRIO ${user?.name}):
-      - Total de Leads: ${metrics.totalLeads}
+      - Total de Leads no CRM: ${metrics.totalLeads}
       - Valor Acumulado (Budget): R$ ${metrics.totalValue.toFixed(2)}
       - Leads por Status: ${JSON.stringify(metrics.leadsByStatus)}
-      - Conexões Ativas: ${connections.length}
+      - Conexões WhatsApp Ativas: ${connections.length}
+${metrics.metaContext || "      - Meta Ads: não conectado"}
 
       DETALHES RECENTES (Últimos 15 leads):
       ${leads.map(l => `- ${l.name} (R$ ${Number(l.value || 0).toFixed(2)}) - Status: ${l.status}`).join('\n')}
 
       INSTRUÇÃO: Você é o Assistente Rastreia AI.
-      1. Se o usuário apenas te cumprimentar (olá, bom dia, etc), responda de forma natural e amigável, sem listar todos os dados de uma vez.
-      2. Use os dados de "DADOS DO SISTEMA" e "DETALHES RECENTES" APENAS se o usuário fizer perguntas específicas sobre leads, valores, status ou desempenho.
-      3. Seja conciso e direto. Não repita informações que não foram solicitadas.
-      4. Responda como um consultor estratégico que conhece os dados, mas não é um robô de relatórios.
+      1. Se o usuário apenas te cumprimentar, responda de forma natural e amigável.
+      2. Use os dados de contexto APENAS se o usuário fizer perguntas específicas.
+      3. Seja conciso e direto. Responda como um consultor estratégico.
+      4. Para dados de campanhas e gastos Meta em tempo real, oriente o usuário a acessar /relatorios/meta.
     `;
 
     // 2. Save User Message

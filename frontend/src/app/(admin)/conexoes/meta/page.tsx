@@ -14,6 +14,9 @@ import {
     AlertTriangle,
     Database,
     ChevronRight,
+    TrendingUp,
+    DollarSign,
+    Target
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -44,19 +47,39 @@ export default function MetaIntegrationPage() {
     const [activeMappingForm, setActiveMappingForm] = useState<any>(null);
     const [mappingConfig, setMappingConfig] = useState({ funnelId: "", stageId: "" });
     const [connectingOAuth, setConnectingOAuth] = useState(false);
+    const [adAccounts, setAdAccounts] = useState<any[]>([]);
+    const [syncing, setSyncing] = useState(false);
+    const [metaStatus, setMetaStatus] = useState<string>("disconnected");
+    const [metaConfig, setMetaConfig] = useState({
+        leadDistribution: "all",
+        ignoreDuplicates: true,
+        duplicateWindowHours: 24,
+        notifyWhatsApp: true,
+        notifyEmail: false,
+        pixelId: ""
+    });
     const searchParams = useSearchParams();
+
 
     // Fetch initial data
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [pagesRes, funnelsRes] = await Promise.all([
+                const [pagesRes, funnelsRes, adAccountsRes, settingsRes] = await Promise.all([
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/pages`, { credentials: "include" }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/funnel`, { credentials: "include" })
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/funnel`, { credentials: "include" }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/ad-accounts`, { credentials: "include" }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/settings`, { credentials: "include" })
                 ]);
 
-                if (pagesRes.ok) setPages(await pagesRes.json());
+                if (pagesRes.ok) {
+                    const pagesData = await pagesRes.json();
+                    setPages(pagesData);
+                    if (pagesData.length > 0) setMetaStatus("active");
+                }
                 if (funnelsRes.ok) setFunnels(await funnelsRes.json());
+                if (adAccountsRes.ok) setAdAccounts(await adAccountsRes.json());
+                if (settingsRes.ok) setMetaConfig(await settingsRes.json());
             } catch (error) {
                 console.error("Erro loading meta space:", error);
             } finally {
@@ -100,6 +123,30 @@ export default function MetaIntegrationPage() {
         } catch (err: any) {
             toast.error(err.message || "Erro ao iniciar conexão com a Meta");
             setConnectingOAuth(false);
+        }
+    };
+
+    const handleSync = async () => {
+        setSyncing(true);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/sync`, { method: "POST", credentials: "include" });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Dados sincronizados com sucesso!");
+                // Refresh data
+                const [pagesRes, adAccountsRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/pages`, { credentials: "include" }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/ad-accounts`, { credentials: "include" })
+                ]);
+                if (pagesRes.ok) setPages(await pagesRes.json());
+                if (adAccountsRes.ok) setAdAccounts(await adAccountsRes.json());
+            } else {
+                toast.error(data.error || "Erro ao sincronizar");
+            }
+        } catch {
+            toast.error("Erro na comunicação com o servidor");
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -176,34 +223,70 @@ export default function MetaIntegrationPage() {
         }
     };
 
+    const saveSettings = async () => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/settings`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ config: metaConfig }),
+                credentials: "include"
+            });
+
+            if (res.ok) {
+                toast.success("Configurações salvas com sucesso!");
+            } else {
+                toast.error("Erro ao salvar configurações");
+            }
+        } catch {
+            toast.error("Erro de conexão");
+        }
+    };
+
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="bg-blue-600 p-2 rounded-xl">
+                    <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-100">
                         <Facebook className="text-white h-8 w-8" />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-extrabold text-gray-900 leading-tight">Meta Ads</h1>
-                        <p className="text-gray-500 text-lg">Gerencie Lead Ads, Graph API e Conversions via Meta.</p>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-4xl font-extrabold text-gray-900 leading-tight">Meta Ads</h1>
+                            <Badge className={metaStatus === "active" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none" : "bg-gray-100 text-gray-500 hover:bg-gray-100 border-none"}>
+                                {metaStatus === "active" ? "Ativo" : "Desconectado"}
+                            </Badge>
+                        </div>
+                        <p className="text-gray-500 text-lg">Lead Ads, Contas de Anúncios e Performance.</p>
                     </div>
                 </div>
-                <Button 
-                    onClick={handleConnect}
-                    disabled={connectingOAuth}
-                    className="bg-blue-600 hover:bg-blue-700 h-12 px-6 text-lg font-semibold shadow-lg shadow-blue-200"
-                >
-                    {connectingOAuth 
-                        ? <RefreshCw className="animate-spin mr-2 h-5 w-5" /> 
-                        : <Facebook className="mr-2 h-5 w-5" />}
-                    {connectingOAuth ? "Redirecionando..." : pages.length > 0 ? "Reconectar Conta" : "Conectar com Facebook"}
-                </Button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button 
+                        variant="outline"
+                        onClick={handleSync}
+                        disabled={syncing || metaStatus !== "active"}
+                        className="h-12 px-6 font-semibold"
+                    >
+                        <RefreshCw className={`mr-2 h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? "Sincronizando..." : "Sincronizar"}
+                    </Button>
+                    <Button 
+                        onClick={handleConnect}
+                        disabled={connectingOAuth}
+                        className="bg-blue-600 hover:bg-blue-700 h-12 px-6 text-lg font-semibold shadow-lg shadow-blue-200 flex-1 sm:flex-none"
+                    >
+                        {connectingOAuth 
+                            ? <RefreshCw className="animate-spin mr-2 h-5 w-5" /> 
+                            : <Facebook className="mr-2 h-5 w-5" />}
+                        {connectingOAuth ? "Redirecionando..." : metaStatus === "active" ? "Reconectar Conta" : "Conectar Facebook"}
+                    </Button>
+                </div>
             </div>
 
             <Tabs defaultValue="pages" className="w-full">
                 <TabsList className="bg-gray-100/50 p-1 mb-6">
                     <TabsTrigger value="pages" className="text-md px-6 py-2">Páginas & Lead Ads</TabsTrigger>
-                    <TabsTrigger value="settings" className="text-md px-6 py-2">Configurações Avançadas</TabsTrigger>
+                    <TabsTrigger value="ad-accounts" className="text-md px-6 py-2">Contas de Anúncios</TabsTrigger>
+                    <TabsTrigger value="settings" className="text-md px-6 py-2">Configurações</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="pages" className="space-y-6">
@@ -356,39 +439,187 @@ export default function MetaIntegrationPage() {
                     )}
                 </TabsContent>
 
-                <TabsContent value="settings">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Configurações Globais da Meta</CardTitle>
-                            <CardDescription>Configure o comportamento do Webhook e Conversions API (CAPI).</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="p-4 border rounded-xl space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-md font-bold">Meta Conversions API (CAPI)</Label>
-                                        <Switch />
+                <TabsContent value="ad-accounts" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {adAccounts.length === 0 && !loading && (
+                            <Card className="col-span-full py-12 border-dashed">
+                                <CardContent className="flex flex-col items-center justify-center text-center">
+                                    <div className="bg-gray-100 p-4 rounded-full mb-4">
+                                        <Target className="text-gray-400 h-10 w-10" />
                                     </div>
-                                    <p className="text-sm text-gray-500">Envia eventos de fechamento do CRM de volta para o pixel da Meta para otimizar suas campanhas.</p>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs">Pixel ID</Label>
-                                        <Input placeholder="Cole o Pixel ID aqui..." />
+                                    <h3 className="text-xl font-bold text-gray-800">Nenhuma Conta de Anúncios</h3>
+                                    <p className="text-gray-500 max-w-xs mx-auto mt-2">
+                                        Não encontramos contas de anúncios vinculadas a este usuário Meta.
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+                        {adAccounts.map((acc) => (
+                            <Card key={acc.id} className="overflow-hidden hover:shadow-lg transition-all border-l-4 border-l-blue-600">
+                                <CardHeader className="pb-4">
+                                    <div className="flex justify-between items-start">
+                                        <Badge className={acc.account_status === 1 ? "bg-emerald-500 text-white" : "bg-gray-400"}>
+                                            {acc.account_status === 1 ? "Ativa" : "Inativa"}
+                                        </Badge>
+                                        <DollarSign className="text-gray-300" size={20} />
                                     </div>
+                                    <CardTitle className="text-xl mt-2">{acc.name}</CardTitle>
+                                    <CardDescription className="font-mono text-xs uppercase">{acc.id}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex justify-between items-center text-sm border-t pt-4">
+                                        <span className="text-gray-500">Moeda</span>
+                                        <span className="font-bold text-gray-800">{acc.currency}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-500">Gasto Total</span>
+                                        <span className="font-bold text-blue-600">
+                                            R$ {(parseFloat(acc.amount_spent || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                    <Button 
+                                        variant="outline" 
+                                        className="w-full mt-2" 
+                                        onClick={() => window.location.href = '/relatorios/meta'}
+                                    >
+                                        Ver Campanhas <TrendingUp size={14} className="ml-2" />
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="settings" className="space-y-6">
+                    <Card className="border-none shadow-none bg-transparent">
+                        <CardHeader className="px-0">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-2xl font-bold">Configurações Avançadas</CardTitle>
+                                    <CardDescription>Personalize como o Rastreia.ai lida com seus leads da Meta.</CardDescription>
                                 </div>
-                                <div className="p-4 border rounded-xl bg-gray-50/50 space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="bg-blue-100 p-1.5 rounded-lg">
-                                            <Settings className="text-blue-600 h-4 w-4" />
+                                <Button onClick={saveSettings} className="bg-blue-600 hover:bg-blue-700">
+                                    Salvar Alterações
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-0 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Deduplication */}
+                                <Card className="overflow-hidden border-gray-100 shadow-sm">
+                                    <CardHeader className="bg-gray-50/50 pb-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-blue-100 p-2 rounded-lg">
+                                                    <RefreshCw className="text-blue-600 h-4 w-4" />
+                                                </div>
+                                                <Label className="text-lg font-bold">Deduplicação de Leads</Label>
+                                            </div>
+                                            <Switch 
+                                                checked={metaConfig.ignoreDuplicates} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, ignoreDuplicates: val })}
+                                            />
                                         </div>
-                                        <Label className="text-md font-bold">Configuração do Webhook</Label>
-                                    </div>
-                                    <p className="text-sm text-gray-500">Copie estes dados para o seu Aplicativo na Meta (Developers).</p>
-                                    <div className="space-y-3">
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-4">
+                                        <p className="text-sm text-gray-500 leading-relaxed">
+                                            Evite que o mesmo lead seja criado múltiplas vezes se ele preencher o formulário novamente em um curto período.
+                                        </p>
+                                        {metaConfig.ignoreDuplicates && (
+                                            <div className="space-y-2">
+                                                <Label className="text-xs uppercase text-gray-400 font-bold">Janela de Tempo (Horas)</Label>
+                                                <div className="flex items-center gap-4">
+                                                    <Input 
+                                                        type="number" 
+                                                        value={metaConfig.duplicateWindowHours} 
+                                                        onChange={(e) => setMetaConfig({ ...metaConfig, duplicateWindowHours: parseInt(e.target.value) })}
+                                                        className="w-24"
+                                                    />
+                                                    <span className="text-sm text-gray-400">leads repetidos serão ignorados por {metaConfig.duplicateWindowHours}h.</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* Lead Distribution */}
+                                <Card className="overflow-hidden border-gray-100 shadow-sm">
+                                    <CardHeader className="bg-gray-50/50 pb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="bg-purple-100 p-2 rounded-lg">
+                                                <Database className="text-purple-600 h-4 w-4" />
+                                            </div>
+                                            <Label className="text-lg font-bold">Distribuição Automática</Label>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-4">
+                                        <p className="text-sm text-gray-500">Defina quem deve ter acesso aos novos leads vindos da Meta por padrão.</p>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase text-gray-400 font-bold">Visibilidade</Label>
+                                            <Select 
+                                                value={metaConfig.leadDistribution} 
+                                                onValueChange={(val) => setMetaConfig({ ...metaConfig, leadDistribution: val })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">Todos os membros do workspace</SelectItem>
+                                                    <SelectItem value="admin">Apenas administradores</SelectItem>
+                                                    <SelectItem value="none">Ninguém (requer atribuição manual)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Notifications */}
+                                <Card className="overflow-hidden border-gray-100 shadow-sm">
+                                    <CardHeader className="bg-gray-50/50 pb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="bg-emerald-100 p-2 rounded-lg">
+                                                <AlertTriangle className="text-emerald-600 h-4 w-4" />
+                                            </div>
+                                            <Label className="text-lg font-bold">Notificações em Tempo Real</Label>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-0.5">
+                                                <Label className="text-sm font-semibold">Notificar via WhatsApp</Label>
+                                                <p className="text-xs text-gray-400">Envia um alerta para o número do gestor.</p>
+                                            </div>
+                                            <Switch 
+                                                checked={metaConfig.notifyWhatsApp} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, notifyWhatsApp: val })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between border-t pt-4">
+                                            <div className="space-y-0.5">
+                                                <Label className="text-sm font-semibold">Aviso Sonoro no Painel</Label>
+                                                <p className="text-xs text-gray-400">Toca um som assim que o lead cair no CRM.</p>
+                                            </div>
+                                            <Switch defaultChecked />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Webhook Info */}
+                                <Card className="overflow-hidden border-gray-100 shadow-sm bg-gray-50/30">
+                                    <CardHeader className="pb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="bg-gray-200 p-2 rounded-lg">
+                                                <Settings className="text-gray-600 h-4 w-4" />
+                                            </div>
+                                            <Label className="text-lg font-bold">Dados Técnicos do Webhook</Label>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
                                         <div className="space-y-1">
                                             <Label className="text-[10px] uppercase font-bold text-gray-400">Callback URL</Label>
                                             <div className="flex gap-2">
                                                 <Input readOnly value={`${process.env.NEXT_PUBLIC_API_URL}/api/webhooks/meta`} className="bg-white text-xs font-mono" />
-                                                <Button variant="outline" size="sm" onClick={() => {
+                                                <Button variant="ghost" size="sm" className="h-9 px-3" onClick={() => {
                                                     navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_API_URL}/api/webhooks/meta`);
                                                     toast.success("Copiado!");
                                                 }}>Copiar</Button>
@@ -398,24 +629,54 @@ export default function MetaIntegrationPage() {
                                             <Label className="text-[10px] uppercase font-bold text-gray-400">Verify Token</Label>
                                             <div className="flex gap-2">
                                                 <Input readOnly value="rastreia_ai_meta_token" className="bg-white text-xs font-mono" />
-                                                <Button variant="outline" size="sm" onClick={() => {
+                                                <Button variant="ghost" size="sm" className="h-9 px-3" onClick={() => {
                                                     navigator.clipboard.writeText("rastreia_ai_meta_token");
                                                     toast.success("Copiado!");
                                                 }}>Copiar</Button>
                                             </div>
                                         </div>
-                                    </div>
-                                    <p className="text-[10px] text-amber-600 font-medium">
-                                        ⚠️ Certifique-se de que o Verify Token seja o mesmo definido no seu arquivo .env
-                                    </p>
-                                </div>
-                                <div className="p-4 border rounded-xl space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-md font-bold">Aviso de Lead Instantâneo</Label>
-                                        <Switch defaultChecked />
-                                    </div>
-                                    <p className="text-sm text-gray-500">Notifica a equipe via dashboard e som assim que um lead entrar vindo de um anúncio.</p>
-                                </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* CAPI / Pixel */}
+                                <Card className="overflow-hidden border-gray-100 shadow-sm md:col-span-2">
+                                    <CardHeader className="bg-blue-600 text-white pb-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Facebook className="h-5 w-5" />
+                                                <Label className="text-lg font-bold">Meta Conversions API (CAPI)</Label>
+                                            </div>
+                                            <Badge className="bg-white/20 text-white border-none">Opcional</Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 grid md:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            <p className="text-sm text-gray-500 leading-relaxed">
+                                                Otimize seus anúncios enviando eventos de conversão (venda, fechamento) de volta para a Meta. Isso melhora a inteligência do Pixel drasticamente.
+                                            </p>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs uppercase text-gray-400 font-bold">ID do Pixel da Meta</Label>
+                                                <Input 
+                                                    placeholder="Digite o ID do Pixel..." 
+                                                    value={metaConfig.pixelId}
+                                                    onChange={(e) => setMetaConfig({ ...metaConfig, pixelId: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="bg-blue-50 rounded-xl p-4 flex flex-col justify-center">
+                                            <div className="flex items-center gap-3 mb-2 text-blue-700 font-bold">
+                                                <Target size={20} />
+                                                <span>Por que usar CAPI?</span>
+                                            </div>
+                                            <ul className="text-xs text-blue-600 space-y-2 list-disc list-inside">
+                                                <li>Melhora a atribuição de vendas em até 30%</li>
+                                                <li>Ignora bloqueadores de anúncios (AdBlock)</li>
+                                                <li>Reduz o custo por aquisição (CPA)</li>
+                                                <li>Funciona mesmo sem cookies no navegador</li>
+                                            </ul>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
                         </CardContent>
                     </Card>

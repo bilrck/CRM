@@ -1,7 +1,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, DollarSign, Users, Target, Calendar, Loader2 } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Target, Calendar, Loader2, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useCallback } from "react";
 import { useWorkspace } from "@/app/api/userProvider";
@@ -149,6 +149,29 @@ export default function Relatorios() {
           <CardContent>
             <div className="text-3xl text-foreground mb-1 font-bold">{stats.kpis.ticketMedio}</div>
             <p className="text-sm text-primary/40">Por conversão</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Atalho para Relatórios Específicos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card 
+          className="cursor-pointer hover:border-blue-500 transition-all border-2 border-transparent bg-gradient-to-br from-blue-50 to-white"
+          onClick={() => window.location.href = '/relatorios/meta'}
+        >
+          <CardHeader className="flex flex-row items-center gap-4 pb-2">
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <Facebook className="text-white" size={24} />
+            </div>
+            <div>
+              <CardTitle>Relatório Meta Ads</CardTitle>
+              <CardDescription>Performance de campanhas, gastos e leads</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center text-blue-600 font-semibold text-sm">
+              Ver relatório detalhado <TrendingUp size={16} className="ml-2" />
+            </div>
           </CardContent>
         </Card>
       </div>

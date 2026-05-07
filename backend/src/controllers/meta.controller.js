@@ -44,6 +44,56 @@ export const getOAuthUrl = async (req, res) => {
 };
 
 /**
+ * Gets the current Meta connection settings (config).
+ */
+export const getSettings = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const connection = await prisma.metaConnection.findFirst({
+      where: { workspaceId },
+      select: { config: true }
+    });
+    
+    if (!connection) {
+      return res.status(404).json({ error: "Nenhuma conexão Meta encontrada" });
+    }
+    
+    res.json(connection.config || {});
+  } catch (error) {
+    console.error("getSettings error:", error);
+    res.status(500).json({ error: "Erro ao buscar configurações" });
+  }
+};
+
+/**
+ * Updates the Meta connection settings (config).
+ */
+export const updateSettings = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const { config } = req.body;
+    
+    const connection = await prisma.metaConnection.findFirst({
+      where: { workspaceId }
+    });
+    
+    if (!connection) {
+      return res.status(404).json({ error: "Nenhuma conexão Meta encontrada" });
+    }
+    
+    const updated = await prisma.metaConnection.update({
+      where: { id: connection.id },
+      data: { config }
+    });
+    
+    res.json(updated.config);
+  } catch (error) {
+    console.error("updateSettings error:", error);
+    res.status(500).json({ error: "Erro ao atualizar configurações" });
+  }
+};
+
+/**
  * OAuth Callback — called by Facebook after user grants permissions.
  * Exchanges the `code` for an access token, saves connection, then redirects to frontend.
  */
@@ -380,24 +430,128 @@ export const listCampaigns = async (req, res) => {
 export const getInsights = async (req, res) => {
   try {
     const { objectId } = req.params;
-    const { range } = req.query; // e.g., last_30d
+    const { range } = req.query;
     const { workspaceId } = req;
-    const connection = await prisma.metaConnection.findFirst({
-      where: { workspaceId },
-    });
+    const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
 
-    if (!connection) {
-      return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
-    }
+    if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
 
-    const insights = await metaService.getInsights(
-      objectId,
-      connection.accessToken,
-      range,
-    );
+    const insights = await metaService.getInsights(objectId, connection.accessToken, range);
     res.json(insights);
   } catch (error) {
     console.error("getInsights error:", error);
     res.status(500).json({ error: "Erro ao buscar insights da Meta" });
+  }
+};
+
+/**
+ * Returns a comprehensive Meta report for the workspace:
+ * accounts, campaigns with insights, pages, and DB form/lead counts.
+ */
+export const getMetaReport = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const { range = "last_30d" } = req.query;
+
+    const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
+    if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
+
+    // Fetch live data from Meta API + DB data in parallel
+    const [liveReport, dbPages] = await Promise.allSettled([
+      metaService.getMetaReport(connection.accessToken, range),
+      prisma.metaPage.findMany({
+        where: { metaConnection: { workspaceId } },
+        include: {
+          leadForms: {
+            include: { _count: { select: { leads: true } } }
+          }
+        }
+      })
+    ]);
+
+    const report = liveReport.status === "fulfilled" ? liveReport.value : {};
+    const pages = dbPages.status === "fulfilled" ? dbPages.value : [];
+
+    // Enrich pages with lead counts
+    const enrichedPages = pages.map(page => ({
+      id: page.id,
+      name: page.name,
+      pageId: page.pageId,
+      category: page.category,
+      pictureUrl: page.pictureUrl,
+      isConnected: page.isConnected,
+      forms: page.leadForms.map(f => ({
+        id: f.id,
+        name: f.name,
+        formId: f.formId,
+        status: f.status,
+        leadCount: f._count?.leads || 0,
+      })),
+      totalLeads: page.leadForms.reduce((sum, f) => sum + (f._count?.leads || 0), 0),
+    }));
+
+    res.json({ ...report, pages: enrichedPages, connectionName: connection.name });
+  } catch (error) {
+    console.error("getMetaReport error:", error);
+    res.status(500).json({ error: "Erro ao gerar relatório Meta" });
+  }
+};
+
+/**
+ * Forces re-sync of all pages and their forms from Meta API.
+ */
+export const syncMeta = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
+    if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
+
+    // Re-sync pages
+    const pagesData = await metaService.getUserPages(connection.accessToken);
+    let syncedPages = 0;
+    let syncedForms = 0;
+
+    for (const p of pagesData) {
+      const page = await prisma.metaPage.upsert({
+        where: { pageId: p.id },
+        update: {
+          name: p.name,
+          accessToken: p.access_token,
+          category: p.category,
+          pictureUrl: p.picture?.data?.url,
+        },
+        create: {
+          pageId: p.id,
+          name: p.name,
+          accessToken: p.access_token,
+          category: p.category,
+          pictureUrl: p.picture?.data?.url,
+          metaConnectionId: connection.id,
+        },
+      });
+      syncedPages++;
+
+      // Sync forms for connected pages
+      if (page.isConnected) {
+        try {
+          const forms = await metaService.getPageForms(p.id, p.access_token);
+          for (const f of forms) {
+            await prisma.metaLeadForm.upsert({
+              where: { formId: f.id },
+              update: { name: f.name, status: f.status },
+              create: { formId: f.id, name: f.name, status: f.status, pageId: page.id },
+            });
+            syncedForms++;
+          }
+        } catch (e) {
+          console.warn(`Could not sync forms for page ${p.id}:`, e.message);
+        }
+      }
+    }
+
+    res.json({ message: "Sincronização concluída", syncedPages, syncedForms });
+  } catch (error) {
+    console.error("syncMeta error:", error);
+    res.status(500).json({ error: "Erro ao sincronizar dados da Meta" });
   }
 };

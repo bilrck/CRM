@@ -23,4 +23,12 @@ router.get("/ad-accounts", metaController.listAdAccounts);
 router.get("/ad-accounts/:adAccountId/campaigns", metaController.listCampaigns);
 router.get("/insights/:objectId", metaController.getInsights);
 
+// Reports & Sync
+router.get("/report", metaController.getMetaReport);
+router.post("/sync", metaController.syncMeta);
+
+// Advanced Settings
+router.get("/settings", metaController.getSettings);
+router.put("/settings", metaController.updateSettings);
+
 export default router;

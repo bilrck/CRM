@@ -9,10 +9,27 @@ export const getConnections = async (req, res) => {
     const workspaceId = req.workspaceId;
     if (!workspaceId) return res.json([]);
 
+    // Fetch general connections
     const connections = await prisma.connection.findMany({
       where: { workspaceId },
     });
-    return res.json(connections);
+
+    // Fetch Meta connections
+    const metaConnections = await prisma.metaConnection.findMany({
+      where: { workspaceId },
+    });
+
+    // Map MetaConnection to the same format for the frontend
+    const mappedMeta = metaConnections.map(m => ({
+      id: `meta-${m.id}`, // String ID to avoid conflict
+      name: m.name || "Conta Meta",
+      provider: "facebook",
+      status: m.status === "active" ? "connected" : "disconnected",
+      lastSync: m.updatedAt,
+      metrics: null // Could aggregate later
+    }));
+
+    return res.json([...connections, ...mappedMeta]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erro ao buscar conexões" });

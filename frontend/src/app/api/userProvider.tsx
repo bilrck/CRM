@@ -27,11 +27,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const loadData = async () => {
     try {
       const resUser = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, { credentials: "include" });
-      if (!resUser.ok) throw new Error("Unauthorized");
+      
+      if (!resUser.ok) {
+        // Se falhou mas temos "hint" de que deveria estar logado, tentamos mais uma vez ou apenas limpamos
+        const hasTokenHint = localStorage.getItem('hasToken');
+        if (hasTokenHint === 'true' && resUser.status !== 401) {
+             // Pode ser erro de rede, não desloga ainda
+             console.warn("Falha ao carregar usuário, tentando hint...");
+        }
+        throw new Error("Unauthorized");
+      }
+
       const userData = await resUser.json();
       setUser(userData);
+      localStorage.setItem('hasToken', 'true'); // Reforça o hint
 
-      const isAuthPage = ['/login', '/register', '/change-password'].some(p => window.location.pathname.includes(p));
+      const isAuthPage = ['/login', '/register', '/forgot-password'].some(p => window.location.pathname.includes(p));
+      
+      // 🔥 Se já está logado e tenta acessar login/register, manda pro dashboard
+      if (isAuthPage && userData) {
+          window.location.href = '/dashboard';
+          return;
+      }
+
       if (userData.forcePasswordChange && !isAuthPage) {
           window.location.href = '/change-password';
           return;
@@ -63,8 +81,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error("UserProvider error:", err);
+      // Se realmente deu 401 ou erro crítico, limpa o hint e desloga
       setUser(null);
       setWorkspaces([]);
+      localStorage.removeItem('hasToken');
     }
   };
 

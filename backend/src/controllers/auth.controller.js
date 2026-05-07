@@ -127,8 +127,9 @@ export const login = async (req, res) => {
     const cookieOptions = {
       httpOnly: true,
       secure: isProduction, // OBRIGATÓRIO em produção para HTTPS
-      sameSite: isProduction ? "none" : "lax", // 'none' permite cross-domain (subdomínios diferentes)
+      sameSite: isProduction ? "none" : "lax", // 'none' permite cross-domain
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       path: "/",
     };
 
@@ -136,8 +137,7 @@ export const login = async (req, res) => {
       cookieOptions.domain = process.env.COOKIE_DOMAIN;
     }
 
-    // Limpa qualquer cookie antigo antes de definir o novo (previne sobreposição de contas)
-    res.clearCookie("token", cookieOptions);
+    // Define o novo cookie (substitui o antigo automaticamente se o path/domain for o mesmo)
     res.cookie("token", token, cookieOptions);
 
     const { password: _, ...rest } = user;

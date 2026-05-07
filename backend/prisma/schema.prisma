@@ -455,6 +455,8 @@ model MetaConnection {
   workspaceId     Int
   workspace       Workspace       @relation(fields: [workspaceId], references: [id])
   
+  config          Json?           @default("{\"leadDistribution\": \"all\", \"ignoreDuplicates\": true, \"duplicateWindowHours\": 24, \"notifyWhatsApp\": true, \"notifyEmail\": false}")
+  
   pages           MetaPage[]
   
   createdAt       DateTime        @default(now())

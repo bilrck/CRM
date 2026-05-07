@@ -23,13 +23,14 @@ export const exchangeUserToken = async (shortLivedToken) => {
 
 /**
  * Lists current user's Facebook pages and their Page Access Tokens.
+ * Includes picture and category for display.
  */
 export const getUserPages = async (userAccessToken) => {
   try {
     const data = await request(
-      `${FB_GRAPH_URL}/me/accounts?access_token=${userAccessToken}&limit=100`,
+      `${FB_GRAPH_URL}/me/accounts?access_token=${userAccessToken}&fields=id,name,category,access_token,picture&limit=100`,
     );
-    return data.data; // Array of pages
+    return data.data;
   } catch (error) {
     console.error("Meta getUserPages error:", error.message);
     throw error;
@@ -207,4 +208,72 @@ export const getMetaMetrics = async (accessToken, adAccountId = null) => {
   } catch (error) {
     return { leads: 0, gastos: "R$ 0", conversoes: 0 };
   }
+};
+
+/**
+ * Comprehensive Meta report: accounts + campaigns with insights + pages.
+ * Runs parallel requests for speed. Individual failures are silenced.
+ */
+export const getMetaReport = async (userAccessToken, dateRange = "last_30d") => {
+  const report = {
+    adAccounts: [],
+    campaigns: [],
+    totalSpend: 0,
+    totalImpressions: 0,
+    totalClicks: 0,
+    totalLeads: 0,
+    dateRange,
+    generatedAt: new Date().toISOString(),
+  };
+
+  try {
+    // 1. Get Ad Accounts
+    const accounts = await getAdAccounts(userAccessToken);
+    report.adAccounts = accounts;
+
+    // 2. For each account, get campaigns + insights in parallel
+    const campaignPromises = accounts.map(async (acc) => {
+      try {
+        const [campaigns, accountInsights] = await Promise.allSettled([
+          getCampaigns(acc.id, userAccessToken),
+          getInsights(acc.id, userAccessToken, dateRange),
+        ]);
+
+        const accCampaigns = campaigns.status === "fulfilled" ? campaigns.value : [];
+        const accInsights = accountInsights.status === "fulfilled" ? accountInsights.value : null;
+
+        // Accumulate totals
+        if (accInsights) {
+          report.totalSpend += parseFloat(accInsights.spend || 0);
+          report.totalImpressions += parseInt(accInsights.impressions || 0);
+          report.totalClicks += parseInt(accInsights.clicks || 0);
+          const leadAction = accInsights.actions?.find((a) => a.action_type === "lead");
+          report.totalLeads += parseInt(leadAction?.value || 0);
+        }
+
+        // Get insights per campaign
+        const enrichedCampaigns = await Promise.all(
+          accCampaigns.map(async (camp) => {
+            try {
+              const insights = await getInsights(camp.id, userAccessToken, dateRange);
+              return { ...camp, insights, adAccountName: acc.name, adAccountId: acc.id };
+            } catch {
+              return { ...camp, insights: null, adAccountName: acc.name, adAccountId: acc.id };
+            }
+          })
+        );
+
+        return enrichedCampaigns;
+      } catch {
+        return [];
+      }
+    });
+
+    const campaignResults = await Promise.all(campaignPromises);
+    report.campaigns = campaignResults.flat();
+  } catch (error) {
+    console.error("getMetaReport error:", error.message);
+  }
+
+  return report;
 };
