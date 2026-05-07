@@ -122,16 +122,17 @@ export const login = async (req, res) => {
       { expiresIn: "7d" },
     );
 
-    // Opções de cookie compatíveis com rede local
+    const isProduction = process.env.NODE_ENV === "production";
+
     const cookieOptions = {
       httpOnly: true,
-      secure: false, // http em rede local
-      sameSite: "lax",
+      secure: isProduction, // OBRIGATÓRIO em produção para HTTPS
+      sameSite: isProduction ? "none" : "lax", // 'none' permite cross-domain (subdomínios diferentes)
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
     };
 
-    if (process.env.NODE_ENV === "production" && process.env.COOKIE_DOMAIN) {
+    if (isProduction && process.env.COOKIE_DOMAIN) {
       cookieOptions.domain = process.env.COOKIE_DOMAIN;
     }
 
@@ -152,14 +153,16 @@ export const login = async (req, res) => {
 // ========================================
 export const logout = async (req, res) => {
   try {
+    const isProduction = process.env.NODE_ENV === "production";
+
     const cookieOptions = {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
     };
 
-    if (process.env.NODE_ENV === "production") {
+    if (isProduction && process.env.COOKIE_DOMAIN) {
       cookieOptions.domain = process.env.COOKIE_DOMAIN;
     }
 
