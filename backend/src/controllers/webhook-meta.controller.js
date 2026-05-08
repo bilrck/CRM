@@ -209,6 +209,7 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
         phone: phone ? phone.replace(/\D/g, "") : null,
         source: `Meta Ads: ${page.name} (ID: ${leadId})`,
         workspaceId: page.metaConnection.workspaceId,
+        metaLeadFormId: form.id,
         funnelId,
         stageId,
         status: funnelId ? undefined : "new",

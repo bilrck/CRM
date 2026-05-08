@@ -65,6 +65,12 @@ export default function Funil() {
   const [stageForm, setStageForm] = useState({ name: "", color: "bg-primary", order: 0 });
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [isFunnelSettingsOpen, setIsFunnelSettingsOpen] = useState(false);
+  
+  // Add Lead States
+  const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
+  const [selectedStageForLead, setSelectedStageForLead] = useState<number | null>(null);
+  const [leadForm, setLeadForm] = useState({ name: "", email: "", phone: "", value: "" });
+  const [creatingLead, setCreatingLead] = useState(false);
 
   const fetchFunnels = useCallback(async () => {
     try {
@@ -352,6 +358,41 @@ export default function Funil() {
     }
   };
 
+  const handleAddLead = async () => {
+    if (!selectedFunnel || !selectedStageForLead) return;
+    if (!leadForm.name) return toast.error("Nome é obrigatório");
+
+    try {
+      setCreatingLead(true);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...leadForm,
+          funnelId: selectedFunnel.id,
+          stageId: selectedStageForLead,
+          status: "new",
+          source: "manual"
+        }),
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        toast.success("Lead adicionado com sucesso!");
+        setIsAddLeadDialogOpen(false);
+        setLeadForm({ name: "", email: "", phone: "", value: "" });
+        fetchFunnels();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Erro ao adicionar lead");
+      }
+    } catch {
+      toast.error("Erro na conexão");
+    } finally {
+      setCreatingLead(false);
+    }
+  };
+
   if (loading && funnels.length === 0) return <div className="p-8">Carregando...</div>;
 
   return (
@@ -463,9 +504,17 @@ export default function Funil() {
                                 <div className={`absolute top-0 left-0 w-full h-1 ${stage.color || 'bg-primary'}`} />
                                 <div className="flex justify-between items-start">
                                     <span className="font-bold text-card-foreground tracking-tight">{stage.name}</span>
-                                    <div className="flex gap-1 opacity-0 group-hover/stage:opacity-100 transition-opacity">
-                                        <button onClick={() => openStageDialog(stage)} className="p-1.5 text-muted-foreground hover:text-primary bg-muted rounded-lg transition-colors"><Pencil className="w-3 h-3" /></button>
-                                        <button onClick={() => deleteStage(stage.id)} className="p-1.5 text-muted-foreground hover:text-destructive bg-muted rounded-lg transition-colors"><Trash className="w-3 h-3" /></button>
+                                    <div className="flex gap-1 items-center">
+                                        <button 
+                                          onClick={() => { setSelectedStageForLead(stage.id); setIsAddLeadDialogOpen(true); }} 
+                                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold"
+                                        >
+                                          <Plus className="w-3.5 h-3.5" /> ADD
+                                        </button>
+                                        <div className="flex gap-1 opacity-0 group-hover/stage:opacity-100 transition-opacity">
+                                            <button onClick={() => openStageDialog(stage)} className="p-1.5 text-muted-foreground hover:text-primary bg-muted rounded-lg transition-colors"><Pencil className="w-3 h-3" /></button>
+                                            <button onClick={() => deleteStage(stage.id)} className="p-1.5 text-muted-foreground hover:text-destructive bg-muted rounded-lg transition-colors"><Trash className="w-3 h-3" /></button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex justify-between text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">
@@ -649,6 +698,63 @@ export default function Funil() {
                   <Button onClick={updateFunnel}>Salvar Alterações</Button>
                 </div>
             </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Lead Dialog */}
+      <Dialog open={isAddLeadDialogOpen} onOpenChange={setIsAddLeadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Lead</DialogTitle>
+            <DialogDescription>
+              Adicionar lead manualmente ao estágio: <strong className="text-primary">{stages.find(s => s.id === selectedStageForLead)?.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome do Lead</Label>
+                <Input 
+                  placeholder="Ex: João Silva" 
+                  value={leadForm.name} 
+                  onChange={e => setLeadForm({...leadForm, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor Estimado</Label>
+                <Input 
+                  type="number" 
+                  placeholder="0.00" 
+                  value={leadForm.value} 
+                  onChange={e => setLeadForm({...leadForm, value: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input 
+                type="email" 
+                placeholder="email@exemplo.com" 
+                value={leadForm.email} 
+                onChange={e => setLeadForm({...leadForm, email: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Telefone</Label>
+              <Input 
+                placeholder="(00) 00000-0000" 
+                value={leadForm.phone} 
+                onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddLeadDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddLead} disabled={creatingLead}>
+              {creatingLead ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Criar Lead
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

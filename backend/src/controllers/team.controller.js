@@ -51,10 +51,28 @@ export const inviteUser = async (req, res) => {
       where: { workspaceId, userId: req.user.id },
     });
 
-    if (currentUserMember?.role !== "ADMIN" && req.user.role !== "ADMIN") {
-      return res
-        .status(403)
-        .json({ error: "Apenas admins podem adicionar membros" });
+    const isSystemAdmin = req.user.role === "ADMIN";
+    const isWorkspaceAdmin = currentUserMember?.role === "ADMIN";
+    const isInternalTeam = !!currentUserMember;
+
+    let allowed = false;
+    if (isSystemAdmin || isWorkspaceAdmin) {
+      allowed = true;
+    } else if (isInternalTeam) {
+      // Equipe interna pode convidar outros (exceto para Gestor)
+      if (role !== "GESTOR") allowed = true;
+    } else if (req.user.role === "GESTOR" && role === "CLIENTE") {
+      // Gestores podem adicionar clientes
+      allowed = true;
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ error: "Você não tem permissão para realizar este convite" });
+    }
+
+    // Apenas Admin pode adicionar Gestores
+    if (role === "GESTOR" && !isSystemAdmin) {
+      return res.status(403).json({ error: "Apenas administradores do sistema podem convidar Gestores" });
     }
 
     // Find user by email
@@ -75,7 +93,7 @@ export const inviteUser = async (req, res) => {
             email,
             name: email.split("@")[0], // Fallback name
             password: hash,
-            role: "USER", // System basic role
+            role: role || "CLIENTE", // Cargo correspondente ao invés de USER
             forcePasswordChange: true,
           },
         });

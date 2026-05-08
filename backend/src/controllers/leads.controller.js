@@ -43,11 +43,15 @@ export const createLead = async (req, res) => {
 export const listLeads = async (req, res) => {
   if (!req.workspaceId) return res.json([]);
 
-  const { hasFollowUp } = req.query;
+  const { hasFollowUp, source } = req.query;
   const where = { workspaceId: req.workspaceId };
 
   if (hasFollowUp === "true") {
     where.nextFollowUpDate = { not: null };
+  }
+
+  if (source) {
+    where.source = source;
   }
 
   const leads = await prisma.lead.findMany({
@@ -57,6 +61,12 @@ export const listLeads = async (req, res) => {
       owner: { select: { name: true } },
       funnel: { select: { name: true } },
       stage: { select: { name: true } },
+      metaLeadForm: { 
+        select: { 
+          name: true, 
+          page: { select: { name: true } } 
+        } 
+      }
     },
   });
   res.json(leads);

@@ -230,6 +230,10 @@ model Lead {
   // ⏰ Reminder Config (Optimized)
   reminderDate        DateTime?
   reminderTriggered   Boolean   @default(false)
+
+  // 🔥 Meta Ads Mapping
+  metaLeadFormId      Int?
+  metaLeadForm        MetaLeadForm? @relation("FormLeads", fields: [metaLeadFormId], references: [id])
 }
 
 
@@ -496,6 +500,8 @@ model MetaLeadForm {
   pageId          Int
   page            MetaPage        @relation(fields: [pageId], references: [id], onDelete: Cascade)
   
+  leads           Lead[]          @relation("FormLeads")
+
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 }

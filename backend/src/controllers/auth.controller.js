@@ -248,3 +248,38 @@ export const forgotPassword = async (req, res) => {
     res.status(500).json({ error: "Erro ao processar solicitação" });
   }
 };
+
+// ========================================
+// RESET PASSWORD (FROM TOKEN)
+// ========================================
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: "Token e nova senha são obrigatórios" });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    const hash = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hash,
+        forcePasswordChange: false
+      }
+    });
+
+    res.json({ message: "Senha redefinida com sucesso. Agora você pode fazer login." });
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(400).json({ error: "O link de recuperação expirou." });
+    }
+    console.error("resetPassword error:", error);
+    res.status(500).json({ error: "Erro ao redefinir senha. Link inválido ou expirado." });
+  }
+};

@@ -50,6 +50,14 @@ interface DashboardStats {
   recentLeads: Lead[];
 }
 
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+
 export default function Dashboard() {
   const { currentWorkspace } = useWorkspace();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -158,14 +166,16 @@ export default function Dashboard() {
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))', 
-                    borderRadius: '8px', 
+                    borderRadius: '12px', 
                     border: '1px solid hsl(var(--border))', 
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                    color: 'hsl(var(--foreground))'
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    color: 'hsl(var(--foreground))',
+                    backdropFilter: 'blur(8px)'
                   }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  itemStyle={{ color: 'var(--primary-chart)', fontWeight: 'bold' }}
+                  cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
                 />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill="var(--primary-chart)" radius={[6, 6, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -189,22 +199,22 @@ export default function Dashboard() {
                   dataKey="value"
                 >
                   {stats.statusDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
             <div className="mt-4 space-y-2 w-full">
-                {stats.statusDistribution.map((s) => (
-                 <div key={s.name} className="flex justify-between items-center text-sm px-2 py-1 rounded-md hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-2">
-                       <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: s.color }}></div>
-                       <span className="text-muted-foreground font-medium">{s.name}</span>
-                    </div>
-                    <span className="font-bold text-foreground">{s.value}</span>
-                 </div>
-               ))}
+                 {stats.statusDistribution.map((s, index) => (
+                  <div key={s.name} className="flex justify-between items-center text-sm px-2 py-1 rounded-md hover:bg-muted/50 transition-colors">
+                     <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}></div>
+                        <span className="text-muted-foreground font-medium">{s.name}</span>
+                     </div>
+                     <span className="font-bold text-foreground">{s.value}</span>
+                  </div>
+                ))}
             </div>
           </CardContent>
         </Card>

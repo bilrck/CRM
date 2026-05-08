@@ -79,8 +79,11 @@ export const chat = async (req, res) => {
     };
 
     try {
-      const [allLeads, userConnections, userData, metaConnection] = await Promise.all([
-        prisma.lead.findMany({ where: { ownerId: userId } }),
+      const [allLeads, userConnections, userData, metaConnection, funnels] = await Promise.all([
+        prisma.lead.findMany({ 
+          where: { workspaceId: req.workspaceId },
+          include: { stage: { select: { name: true } } }
+        }),
         prisma.connection.findMany({ where: { userId } }),
         prisma.user.findUnique({ where: { id: userId } }),
         prisma.metaConnection.findFirst({
@@ -88,10 +91,14 @@ export const chat = async (req, res) => {
           include: {
             pages: {
               include: {
-                leadForms: { include: { _count: { select: { leads: true } } } }
+                forms: { include: { _count: { select: { leads: true } } } }
               }
             }
           }
+        }),
+        prisma.funnel.findMany({
+          where: { workspaceId: req.workspaceId },
+          include: { stages: { select: { id: true, name: true } } }
         })
       ]);
 
@@ -101,22 +108,26 @@ export const chat = async (req, res) => {
 
       metrics.totalLeads = allLeads.length;
       metrics.totalValue = allLeads.reduce((acc, l) => acc + Number(l.value || 0), 0);
+      
+      const leadsByStage = {};
       allLeads.forEach(l => {
-        metrics.leadsByStatus[l.status] = (metrics.leadsByStatus[l.status] || 0) + 1;
+        const stageName = l.stage?.name || l.status || "Sem Estágio";
+        leadsByStage[stageName] = (leadsByStage[stageName] || 0) + 1;
       });
+      metrics.leadsByStage = leadsByStage;
 
       // Build Meta context string
       let metaContext = "";
       if (metaConnection) {
         const pagesInfo = metaConnection.pages.map(p => {
-          const formsSummary = p.leadForms.map(f =>
+          const formsSummary = p.forms.map(f =>
             `    - Formulário "${f.name}": ${f._count?.leads || 0} leads`
           ).join("\n");
           return `  - Página: ${p.name} (${p.isConnected ? "sincronizada" : "não sincronizada"})\n${formsSummary}`;
         }).join("\n");
 
         const totalMetaLeads = metaConnection.pages.reduce((sum, p) =>
-          sum + p.leadForms.reduce((s, f) => s + (f._count?.leads || 0), 0), 0
+          sum + p.forms.reduce((s, f) => s + (f._count?.leads || 0), 0), 0
         );
 
         metaContext = `
@@ -126,25 +137,29 @@ export const chat = async (req, res) => {
 ${pagesInfo}`;
 
         // 🔥 Dynamic Context: Fetch live report summary ONLY if user asks about Ads/Finance
-        const adKeywords = ["anúncio", "campanha", "gasto", "meta", "facebook", "ads", "performance", "ctr", "investimento"];
-        if (adKeywords.some(k => message.toLowerCase().includes(k))) {
+        const adKeywords = ["anúncio", "campanha", "gasto", "meta", "facebook", "ads", "performance", "ctr", "investimento", "dinheiro", "valor"];
+        if (adKeywords.some(k => message.toLowerCase().includes(k)) || message.length > 50) {
           try {
             const liveReport = await metaService.getMetaReport(metaConnection.accessToken, "this_month");
             const activeCampaigns = liveReport.campaigns.filter(c => c.status === "ACTIVE");
             
             metaContext += `
-      LIVE REPORT (Este mês):
-      - Gasto Total: R$ ${liveReport.totalSpend.toFixed(2)}
-      - Cliques: ${liveReport.totalClicks} | Impressões: ${liveReport.totalImpressions}
-      - Leads Reportados pela Meta: ${liveReport.totalLeads}
+      LIVE REPORT (Métricas de Anúncios deste mês):
+      - Gasto Total (Spend): R$ ${liveReport.totalSpend.toFixed(2)}
+      - Leads Reportados pela Meta (On-Facebook): ${liveReport.totalLeads}
+      - CPM Médio: R$ ${(liveReport.totalImpressions > 0 ? (liveReport.totalSpend / liveReport.totalImpressions) * 1000 : 0).toFixed(2)}
+      - CTR Médio: ${(liveReport.totalImpressions > 0 ? (liveReport.totalClicks / liveReport.totalImpressions) * 100 : 0).toFixed(2)}%
       - Campanhas Ativas (${activeCampaigns.length}):
-        ${activeCampaigns.slice(0, 5).map(c => `  * ${c.name}: R$ ${parseFloat(c.insights?.spend || 0).toFixed(2)} gasto`).join("\n")}
+        ${activeCampaigns.slice(0, 5).map(c => `  * ${c.name}: R$ ${parseFloat(c.insights?.spend || 0).toFixed(2)} gasto, ${c.insights?.clicks || 0} cliques`).join("\n")}
+      
+      CONTAS DE ANÚNCIOS:
+      ${liveReport.adAccounts.map(acc => `  - ${acc.name}: R$ ${parseFloat(acc.amount_spent || 0).toFixed(2)} total gasto histórico, Status: ${acc.account_status === 1 ? 'Ativa' : 'Problema'}`).join("\n")}
       `;
           } catch (liveError) {
             console.warn("Could not fetch live report for AI context:", liveError.message);
           }
         } else {
-          metaContext += `\n      - Para dados financeiros detalhados (gastos, campanhas, CTR), o usuário pode acessar /relatorios/meta`;
+          metaContext += `\n      - Para dados financeiros detalhados e gráficos, o usuário pode acessar /relatorios/meta`;
         }
       }
 
@@ -158,18 +173,19 @@ ${pagesInfo}`;
       DADOS DO SISTEMA (USUÁRIO ${user?.name}):
       - Total de Leads no CRM: ${metrics.totalLeads}
       - Valor Acumulado (Budget): R$ ${metrics.totalValue.toFixed(2)}
-      - Leads por Status: ${JSON.stringify(metrics.leadsByStatus)}
+      - Distribuição por Estágio do Funil: ${JSON.stringify(metrics.leadsByStage)}
       - Conexões WhatsApp Ativas: ${connections.length}
-${metrics.metaContext || "      - Meta Ads: não conectado"}
+${metrics.metaContext || "      - Meta Ads: não conectado ou erro na sincronização"}
 
-      DETALHES RECENTES (Últimos 15 leads):
-      ${leads.map(l => `- ${l.name} (R$ ${Number(l.value || 0).toFixed(2)}) - Status: ${l.status}`).join('\n')}
+      DETALHES DOS LEADS RECENTES (Últimos 15):
+      ${leads.map(l => `- ${l.name} (${l.phone || 'Sem tel'}) - Valor: R$ ${Number(l.value || 0).toFixed(2)} - Estágio: ${l.stage?.name || l.status}`).join('\n')}
 
-      INSTRUÇÃO: Você é o Assistente Rastreia AI.
-      1. Se o usuário apenas te cumprimentar, responda de forma natural e amigável.
-      2. Use os dados de contexto APENAS se o usuário fizer perguntas específicas.
-      3. Seja conciso e direto. Responda como um consultor estratégico.
-      4. Para dados de campanhas e gastos Meta em tempo real, oriente o usuário a acessar /relatorios/meta.
+      INSTRUÇÃO PARA O ASSISTENTE RASTREIA AI:
+      1. Você é um analista de performance e consultor de vendas. Seja amigável e profissional.
+      2. Priorize responder com os dados numéricos presentes no contexto acima.
+      3. Se o usuário perguntar sobre gastos ou anúncios e os dados de "LIVE REPORT" estiverem disponíveis, responda diretamente com os valores.
+      4. Somente sugira acessar "/relatorios/meta" ou "/dashboard" se o usuário pedir gráficos complexos ou se os dados específicos não estiverem no contexto.
+      5. Se houver discrepância entre leads no CRM (${metrics.totalLeads}) e leads na Meta, explique que isso pode ser devido a filtros ou leads manuais.
     `;
 
     // 2. Save User Message

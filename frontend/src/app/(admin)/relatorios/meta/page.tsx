@@ -50,18 +50,28 @@ export default function MetaReportPage() {
   const [range, setRange] = useState("last_30d");
   const [report, setReport] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [metaConfig, setMetaConfig] = useState<any>(null);
+  
+  // Filters
+  const [filterAdAccount, setFilterAdAccount] = useState("all");
 
   const fetchReport = async (selectedRange = range) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/meta/report?range=${selectedRange}`, { credentials: "include" });
-      if (res.status === 404) {
+      const [reportRes, settingsRes] = await Promise.all([
+        fetch(`${API}/meta/report?range=${selectedRange}`, { credentials: "include" }),
+        fetch(`${API}/meta/settings`, { credentials: "include" })
+      ]);
+
+      if (reportRes.status === 404) {
         setError("Nenhuma conta Meta conectada. Conecte sua conta em Conexões > Meta.");
         return;
       }
-      if (!res.ok) throw new Error("Erro ao carregar relatório");
-      setReport(await res.json());
+      
+      if (reportRes.ok) setReport(await reportRes.json());
+      if (settingsRes.ok) setMetaConfig(await settingsRes.json());
+      
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -160,21 +170,44 @@ export default function MetaReportPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={DollarSign} label="Gasto Total" value={loading ? "..." : fmtMoney(report?.totalSpend)} sub={DATE_RANGES.find(r => r.value === range)?.label} color="blue" />
-        <StatCard icon={Eye} label="Impressões" value={loading ? "..." : fmt(report?.totalImpressions)} color="purple" />
-        <StatCard icon={MousePointerClick} label="Cliques" value={loading ? "..." : fmt(report?.totalClicks)} sub={`CTR: ${loading ? "..." : ctr}`} color="orange" />
-        <StatCard icon={Users} label="Leads (Meta)" value={loading ? "..." : fmt(report?.totalLeads)} color="green" />
+      {/* Internal Navigation */}
+      <div className="flex gap-2 bg-gray-100/50 p-1 rounded-xl w-fit">
+        <Button variant="ghost" size="sm" className="bg-white shadow-sm font-bold text-blue-600">Visão Geral</Button>
+        <Button variant="ghost" size="sm" onClick={() => window.location.href = '/relatorios/meta/insights'} className="text-gray-500 hover:text-blue-600">Insights Avançados</Button>
+        <Button variant="ghost" size="sm" onClick={() => window.location.href = '/relatorios/meta/leads'} className="text-gray-500 hover:text-blue-600">Leads Raw Data</Button>
       </div>
 
+      {/* KPI Cards */}
+      {(!metaConfig || metaConfig.reportModules?.summary) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={DollarSign} label="Gasto Total" value={loading ? "..." : fmtMoney(report?.totalSpend)} sub={DATE_RANGES.find(r => r.value === range)?.label} color="blue" />
+          <StatCard icon={Eye} label="Impressões" value={loading ? "..." : fmt(report?.totalImpressions)} color="purple" />
+          <StatCard icon={MousePointerClick} label="Cliques" value={loading ? "..." : fmt(report?.totalClicks)} sub={`CTR: ${loading ? "..." : ctr}`} color="orange" />
+          <StatCard icon={Users} label="Leads (Meta)" value={loading ? "..." : fmt(report?.totalLeads)} color="green" />
+        </div>
+      )}
+
       {/* Campaigns Table */}
+      {(!metaConfig || metaConfig.reportModules?.campaigns) && (
       <Card className="border-2">
         <CardHeader className="border-b bg-gray-50/50">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2"><TrendingUp size={18} className="text-blue-600" /> Campanhas</CardTitle>
               <CardDescription>{report?.campaigns?.length ?? 0} campanhas encontradas</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Select value={filterAdAccount} onValueChange={setFilterAdAccount}>
+                <SelectTrigger className="w-48 h-8 text-xs">
+                  <SelectValue placeholder="Todas as Contas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Contas</SelectItem>
+                  {report?.adAccounts?.map((acc: any) => (
+                    <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -202,7 +235,9 @@ export default function MetaReportPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {report.campaigns.map((c: any) => {
+                  {report.campaigns
+                    .filter((c: any) => filterAdAccount === "all" || c.adAccountId === filterAdAccount)
+                    .map((c: any) => {
                     const ins = c.insights;
                     const campaignCtr = ins?.impressions > 0
                       ? ((ins.clicks / ins.impressions) * 100).toFixed(2) + "%"
@@ -234,8 +269,10 @@ export default function MetaReportPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Pages & Forms */}
+      {(!metaConfig || metaConfig.reportModules?.pages) && (
       <Card className="border-2">
         <CardHeader className="border-b bg-gray-50/50">
           <CardTitle className="flex items-center gap-2"><FileText size={18} className="text-blue-600" /> Páginas & Formulários</CardTitle>
@@ -292,9 +329,10 @@ export default function MetaReportPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Ad Accounts Summary */}
-      {report?.adAccounts?.length > 0 && (
+      {(!metaConfig || metaConfig.reportModules?.adAccounts) && report?.adAccounts?.length > 0 && (
         <Card className="border-2">
           <CardHeader className="border-b bg-gray-50/50">
             <CardTitle className="flex items-center gap-2"><DollarSign size={18} className="text-blue-600" /> Contas de Anúncios</CardTitle>

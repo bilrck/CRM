@@ -50,13 +50,21 @@ export default function MetaIntegrationPage() {
     const [adAccounts, setAdAccounts] = useState<any[]>([]);
     const [syncing, setSyncing] = useState(false);
     const [metaStatus, setMetaStatus] = useState<string>("disconnected");
-    const [metaConfig, setMetaConfig] = useState({
+    const [metaConfig, setMetaConfig] = useState<any>({
         leadDistribution: "all",
         ignoreDuplicates: true,
         duplicateWindowHours: 24,
         notifyWhatsApp: true,
         notifyEmail: false,
-        pixelId: ""
+        pixelId: "",
+        reportModules: {
+            summary: true,
+            campaigns: true,
+            pages: true,
+            insights: true,
+            leads: true,
+            adAccounts: true
+        }
     });
     const searchParams = useSearchParams();
 
@@ -634,6 +642,62 @@ export default function MetaIntegrationPage() {
                                                     toast.success("Copiado!");
                                                 }}>Copiar</Button>
                                             </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                
+                                {/* Report Modules Config */}
+                                <Card className="overflow-hidden border-gray-100 shadow-sm md:col-span-2">
+                                    <CardHeader className="bg-gray-50/50 pb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="bg-emerald-100 p-2 rounded-lg">
+                                                <TrendingUp className="text-emerald-600 h-4 w-4" />
+                                            </div>
+                                            <Label className="text-lg font-bold">Módulos do Relatório Meta</Label>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 grid grid-cols-2 md:grid-cols-3 gap-6">
+                                        <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                                            <Label className="cursor-pointer">Resumo Geral (KPIs)</Label>
+                                            <Switch 
+                                                checked={metaConfig.reportModules?.summary} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, reportModules: { ...metaConfig.reportModules, summary: val } })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                                            <Label className="cursor-pointer">Campanhas</Label>
+                                            <Switch 
+                                                checked={metaConfig.reportModules?.campaigns} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, reportModules: { ...metaConfig.reportModules, campaigns: val } })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                                            <Label className="cursor-pointer">Páginas & Formulários</Label>
+                                            <Switch 
+                                                checked={metaConfig.reportModules?.pages} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, reportModules: { ...metaConfig.reportModules, pages: val } })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                                            <Label className="cursor-pointer">Insights Detalhados</Label>
+                                            <Switch 
+                                                checked={metaConfig.reportModules?.insights} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, reportModules: { ...metaConfig.reportModules, insights: val } })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                                            <Label className="cursor-pointer">Listagem de Leads</Label>
+                                            <Switch 
+                                                checked={metaConfig.reportModules?.leads} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, reportModules: { ...metaConfig.reportModules, leads: val } })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                                            <Label className="cursor-pointer">Contas de Anúncios</Label>
+                                            <Switch 
+                                                checked={metaConfig.reportModules?.adAccounts} 
+                                                onCheckedChange={(val) => setMetaConfig({ ...metaConfig, reportModules: { ...metaConfig.reportModules, adAccounts: val } })}
+                                            />
                                         </div>
                                     </CardContent>
                                 </Card>

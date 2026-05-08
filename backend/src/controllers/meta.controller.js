@@ -462,7 +462,7 @@ export const getMetaReport = async (req, res) => {
       prisma.metaPage.findMany({
         where: { metaConnection: { workspaceId } },
         include: {
-          leadForms: {
+          forms: {
             include: { _count: { select: { leads: true } } }
           }
         }
@@ -480,14 +480,14 @@ export const getMetaReport = async (req, res) => {
       category: page.category,
       pictureUrl: page.pictureUrl,
       isConnected: page.isConnected,
-      forms: page.leadForms.map(f => ({
+      forms: page.forms.map(f => ({
         id: f.id,
         name: f.name,
         formId: f.formId,
         status: f.status,
         leadCount: f._count?.leads || 0,
       })),
-      totalLeads: page.leadForms.reduce((sum, f) => sum + (f._count?.leads || 0), 0),
+      totalLeads: page.forms.reduce((sum, f) => sum + (f._count?.leads || 0), 0),
     }));
 
     res.json({ ...report, pages: enrichedPages, connectionName: connection.name });

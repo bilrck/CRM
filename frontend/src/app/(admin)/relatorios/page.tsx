@@ -189,9 +189,19 @@ export default function Relatorios() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis type="number" stroke="hsl(var(--muted-foreground))" hide />
                 <YAxis dataKey="source" type="category" width={120} stroke="hsl(var(--muted-foreground))" />
-                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--popover-foreground))' }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    borderRadius: '12px', 
+                    border: '1px solid hsl(var(--border))', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    color: 'hsl(var(--foreground))',
+                    backdropFilter: 'blur(8px)'
+                  }}
+                  itemStyle={{ color: 'var(--primary-chart)', fontWeight: 'bold' }}
+                />
                 <Legend />
-                <Bar dataKey="leads" fill="hsl(var(--primary))" name="Leads" radius={[0, 8, 8, 0]} />
+                <Bar dataKey="leads" fill="var(--primary-chart)" name="Leads" radius={[0, 8, 8, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

@@ -78,11 +78,12 @@
   --input: oklch(0.88 0.02 160);
   --ring: oklch(0.58 0.16 160);
   
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: hsl(160, 80%, 45%);
+  --chart-2: hsl(200, 80%, 45%);
+  --chart-3: hsl(260, 80%, 45%);
+  --chart-4: hsl(40, 80%, 45%);
+  --chart-5: hsl(10, 80%, 45%);
+  --primary-chart: hsl(160, 84%, 39%);
 
   /* Sidebar: Premium Dark Sidebar in Light Mode */
   --sidebar: oklch(0.22 0.04 160);
@@ -123,11 +124,12 @@
   --input: oklch(0.35 0.05 160);
   --ring: oklch(0.65 0.15 160);
   
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --chart-1: hsl(160, 70%, 60%);
+  --chart-2: hsl(200, 70%, 60%);
+  --chart-3: hsl(260, 70%, 60%);
+  --chart-4: hsl(40, 70%, 60%);
+  --chart-5: hsl(10, 70%, 60%);
+  --primary-chart: hsl(160, 70%, 60%);
 
   /* Sidebar integration into dark mode */
   --sidebar: oklch(0.15 0.03 160);
