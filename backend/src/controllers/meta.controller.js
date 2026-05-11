@@ -590,16 +590,20 @@ export const getInsights = async (req, res) => {
 export const getMetaReport = async (req, res) => {
   try {
     const { workspaceId } = req;
-    const { range = "last_30d" } = req.query;
+    const { range = "last_30d", businessId } = req.query;
 
     const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
     if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
 
     // Fetch live data from Meta API + DB data in parallel
     const [liveReport, dbPages] = await Promise.allSettled([
-      metaService.getMetaReport(connection.accessToken, range),
+      metaService.getMetaReport(connection.accessToken, range, businessId),
       prisma.metaPage.findMany({
-        where: { metaConnection: { workspaceId } },
+        where: { 
+          metaConnection: { workspaceId },
+          // If businessId is provided, filter pages by the internal business record
+          business: businessId ? { businessId } : undefined
+        },
         include: {
           forms: {
             include: { _count: { select: { leads: true } } }
@@ -781,5 +785,45 @@ export const syncFormLeads = async (req, res) => {
   } catch (error) {
     console.error("syncFormLeads error:", error);
     res.status(500).json({ error: "Erro ao sincronizar leads do formulário" });
+  }
+};
+
+/**
+ * Returns all unified leads for the workspace.
+ */
+export const getLeadsCenter = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const leads = await prisma.metaUnifiedLead.findMany({
+      where: { workspaceId },
+      orderBy: { createdTime: "desc" }
+    });
+    res.json(leads);
+  } catch (error) {
+    console.error("getLeadsCenter error:", error);
+    res.status(500).json({ error: "Erro ao buscar Central de Leads" });
+  }
+};
+
+/**
+ * Triggers a full manual sync of all Meta leads from all forms.
+ */
+export const syncLeadsCenter = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const connection = await prisma.metaConnection.findFirst({
+      where: { workspaceId, status: "active" }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: "Nenhuma conta Meta ativa conectada" });
+    }
+
+    await metaService.syncLeadsCenter(workspaceId, connection.accessToken);
+
+    res.json({ success: true, message: "Sincronização da Central de Leads concluída" });
+  } catch (error) {
+    console.error("syncLeadsCenter error:", error);
+    res.status(500).json({ error: error.message || "Erro ao sincronizar Central de Leads" });
   }
 };

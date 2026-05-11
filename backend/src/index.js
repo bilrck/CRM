@@ -125,8 +125,10 @@ server.listen(PORT, () => {
 import { initSocket } from "./services/socket.service.js";
 import { startFollowUpWorker } from "./services/followUp.service.js";
 import { startBillingWorker } from "./services/billing.service.js";
+import { startMetaSyncWorker } from "./services/metaSync.service.js";
 
 initSocket(server);
 startFollowUpWorker();
 startBillingWorker();
+startMetaSyncWorker();
  

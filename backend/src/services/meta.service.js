@@ -225,66 +225,101 @@ export const getMetaMetrics = async (accessToken, adAccountId = null) => {
 };
 
 /**
- * Comprehensive Meta report: accounts + campaigns with insights + pages.
- * Runs parallel requests for speed. Individual failures are silenced.
+ * Lists the Ad Accounts specifically for a Business Account.
  */
-export const getMetaReport = async (userAccessToken, dateRange = "last_30d") => {
-  const report = {
-    adAccounts: [],
-    campaigns: [],
-    totalSpend: 0,
-    totalImpressions: 0,
-    totalClicks: 0,
-    totalLeads: 0,
-    dateRange,
-    generatedAt: new Date().toISOString(),
-  };
-
+export const getBusinessAdAccounts = async (businessId, userAccessToken) => {
   try {
-    // 1. Get Ad Accounts
-    const accounts = await getAdAccounts(userAccessToken);
-    report.adAccounts = accounts;
-
-    // 2. For each account, get campaigns with insights in a single call (Bulk Optimization)
-    const campaignPromises = accounts.map(async (acc) => {
-      try {
-        const [campaignsRes, accountInsightsRes] = await Promise.allSettled([
-          request(`${FB_GRAPH_URL}/${acc.id}/campaigns?access_token=${userAccessToken}&fields=id,name,status,insights.date_preset(${dateRange}){spend,impressions,clicks,actions}`),
-          getInsights(acc.id, userAccessToken, dateRange),
-        ]);
-
-        const campaignsData = campaignsRes.status === "fulfilled" ? campaignsRes.value.data || [] : [];
-        const accInsights = accountInsightsRes.status === "fulfilled" ? accountInsightsRes.value : null;
-
-        // Accumulate totals
-        if (accInsights) {
-          report.totalSpend += parseFloat(accInsights.spend || 0);
-          report.totalImpressions += parseInt(accInsights.impressions || 0);
-          report.totalClicks += parseInt(accInsights.clicks || 0);
-          const leadAction = accInsights.actions?.find((a) => a.action_type === "lead");
-          report.totalLeads += parseInt(leadAction?.value || 0);
-        }
-
-        // Map campaigns with their nested insights
-        return campaignsData.map(camp => ({
-          ...camp,
-          insights: camp.insights?.data?.[0] || null,
-          adAccountName: acc.name,
-          adAccountId: acc.id
-        }));
-      } catch (err) {
-        console.warn(`Error fetching data for account ${acc.id}:`, err.message);
-        return [];
-      }
-    });
-
-    const campaignResults = await Promise.all(campaignPromises);
-    report.campaigns = campaignResults.flat();
+    const data = await request(
+      `${FB_GRAPH_URL}/${businessId}/adaccounts?access_token=${userAccessToken}&fields=name,account_id,id,currency,account_status,amount_spent&limit=100`,
+    );
+    return data.data;
   } catch (error) {
-    console.error("getMetaReport error:", error.message);
+    console.error(`Meta getBusinessAdAccounts error for ${businessId}:`, error.message);
+    throw error;
   }
+};
 
-  return report;
+/**
+ * Comprehensive Meta report: accounts + campaigns with insights + pages.
+ * Supports filtering by businessId.
+ */
+export const getMetaReport = async (userAccessToken, dateRange = "last_30d", businessId = null) => {
+  const cacheKey = `report_${userAccessToken}_${dateRange}_${businessId || 'all'}`;
+  
+  return getCachedOrFetch(cacheKey, async () => {
+    const report = {
+      adAccounts: [],
+      campaigns: [],
+      totalSpend: 0,
+      totalImpressions: 0,
+      totalClicks: 0,
+      totalLeads: 0,
+      avgCpl: 0,
+      avgCtr: 0,
+      dateRange,
+      generatedAt: new Date().toISOString(),
+    };
+
+    try {
+      // 1. Get Ad Accounts (either for all or for a specific business)
+      let accounts = [];
+      if (businessId) {
+        accounts = await getBusinessAdAccounts(businessId, userAccessToken);
+      } else {
+        accounts = await getAdAccounts(userAccessToken);
+      }
+      report.adAccounts = accounts;
+
+      // 2. For each account, get campaigns with insights in a single call (Bulk Optimization)
+      const campaignPromises = accounts.map(async (acc) => {
+        try {
+          const [campaignsRes, accountInsightsRes] = await Promise.allSettled([
+            request(`${FB_GRAPH_URL}/${acc.id}/campaigns?access_token=${userAccessToken}&fields=id,name,status,insights.date_preset(${dateRange}){spend,impressions,clicks,actions}`),
+            getInsights(acc.id, userAccessToken, dateRange),
+          ]);
+
+          const campaignsData = campaignsRes.status === "fulfilled" ? campaignsRes.value.data || [] : [];
+          const accInsights = accountInsightsRes.status === "fulfilled" ? accountInsightsRes.value : null;
+
+          // Accumulate totals
+          if (accInsights) {
+            report.totalSpend += parseFloat(accInsights.spend || 0);
+            report.totalImpressions += parseInt(accInsights.impressions || 0);
+            report.totalClicks += parseInt(accInsights.clicks || 0);
+            const leadAction = accInsights.actions?.find((a) => a.action_type === "lead");
+            report.totalLeads += parseInt(leadAction?.value || 0);
+          }
+
+          // Map campaigns with their nested insights
+          return campaignsData.map(camp => ({
+            ...camp,
+            insights: camp.insights?.data?.[0] || null,
+            adAccountName: acc.name,
+            adAccountId: acc.id
+          }));
+        } catch (err) {
+          console.warn(`Error fetching data for account ${acc.id}:`, err.message);
+          return [];
+        }
+      });
+
+      const campaignResults = await Promise.all(campaignPromises);
+      report.campaigns = campaignResults.flat();
+
+      // 3. Post-calculation metrics
+      if (report.totalImpressions > 0) {
+        report.avgCtr = (report.totalClicks / report.totalImpressions) * 100;
+      }
+      if (report.totalLeads > 0) {
+        report.avgCpl = report.totalSpend / report.totalLeads;
+      }
+
+    } catch (error) {
+      console.error("getMetaReport error:", error.message);
+    }
+
+    return report;
+  });
 };
 
 /**
@@ -402,4 +437,104 @@ export const getFormLeads = async (formId, accessToken, limit = 50) => {
     console.error(`Meta getFormLeads error for ${formId}:`, error.message);
     throw error;
   }
+};
+
+/**
+ * Helper to map Meta lead fields (array) to a flat object.
+ */
+export const mapLeadFields = (fieldData = []) => {
+  const mapped = {};
+  for (const field of fieldData) {
+    mapped[field.name] = field.values?.[0] || null;
+  }
+  return mapped;
+};
+
+/**
+ * Fetches full details for a specific Lead.
+ */
+export const getLeadDetails = async (leadId, token) => {
+  try {
+    return await request(
+      `${FB_GRAPH_URL}/${leadId}?access_token=${token}`
+    );
+  } catch (error) {
+    console.error(`Meta getLeadDetails error for ${leadId}:`, error.message);
+    throw error;
+  }
+};
+
+/**
+ * Main service for the Unified Leads Center.
+ * Traverses Hierarchy: Businesses -> Pages -> Forms -> Leads
+ */
+export const syncLeadsCenter = async (workspaceId, token) => {
+  const { default: prisma } = await import("../config/prisma.js");
+
+  const businesses = await getBusinesses(token);
+
+  let totalNewLeads = 0;
+
+  for (const business of businesses) {
+    const pages = await getBusinessPages(business.id, token);
+
+    for (const page of pages) {
+      let pageToken = null;
+      try {
+        pageToken = await getPageAccessToken(page.id, token);
+      } catch (e) {
+        console.warn(`Could not get page token for ${page.id} during leads center sync:`, e.message);
+        continue;
+      }
+
+      const forms = await getPageForms(page.id, pageToken);
+
+      for (const form of forms) {
+        try {
+          const leads = await getFormLeads(form.id, pageToken);
+
+          for (const lead of leads) {
+            const exists = await prisma.metaUnifiedLead.findUnique({
+              where: { metaLeadId: lead.id }
+            });
+
+            if (exists) continue;
+
+            const fields = mapLeadFields(lead.field_data);
+
+            await prisma.metaUnifiedLead.create({
+              data: {
+                metaLeadId: lead.id,
+                name: fields.full_name || fields.name || "Lead Meta",
+                email: fields.email,
+                phone: fields.phone_number,
+                pageId: page.id,
+                pageName: page.name,
+                formId: form.id,
+                formName: form.name,
+                createdTime: new Date(lead.created_time),
+                rawData: lead,
+                workspaceId
+              }
+            });
+            totalNewLeads++;
+          }
+        } catch (e) {
+          console.warn(`Could not sync leads for form ${form.id}:`, e.message);
+        }
+      }
+    }
+  }
+
+  if (totalNewLeads > 0) {
+    const { notifyWorkspace } = await import("./notifications.service.js");
+    await notifyWorkspace(workspaceId, {
+      title: "🔄 Sincronização Meta Concluída",
+      message: `${totalNewLeads} novos leads foram importados para sua Central de Leads.`,
+      type: "SUCCESS",
+      eventKey: "newLead"
+    });
+  }
+
+  return totalNewLeads;
 };

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import prisma from "../config/prisma.js";
 import * as metaService from "../services/meta.service.js";
 import { sendMessage } from "../services/evolution.service.js";
+import * as notificationsService from "../services/notifications.service.js";
 
 /**
  * Validates Meta Webhook Signature (X-Hub-Signature-256)
@@ -208,7 +209,36 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       }
     }
 
-    // 7. Create Lead in CRM
+    // 7. Create MetaUnifiedLead (Unified Center)
+    await prisma.metaUnifiedLead.upsert({
+      where: { metaLeadId: leadId },
+      update: {
+        name,
+        email,
+        phone: cleanPhone,
+        pageId: fbPageId,
+        pageName: page.name,
+        formId: fbFormId,
+        formName: form.name,
+        createdTime: new Date(rawLead.created_time),
+        rawData: rawLead
+      },
+      create: {
+        metaLeadId: leadId,
+        name,
+        email,
+        phone: cleanPhone,
+        pageId: fbPageId,
+        pageName: page.name,
+        formId: fbFormId,
+        formName: form.name,
+        createdTime: new Date(rawLead.created_time),
+        rawData: rawLead,
+        workspaceId: page.metaConnection.workspaceId
+      }
+    });
+
+    // 8. Create Lead in CRM (Main Leads)
     const createdLead = await prisma.lead.create({
       data: {
         name,
@@ -231,10 +261,18 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
     });
 
     console.log(
-      `✅ Lead ${name} importado com sucesso do formulário ${form.name}`,
+      `✅ Lead ${name} importado com sucesso para Central de Leads e CRM (Form: ${form.name})`,
     );
 
-    // 8. Execute WhatsApp Automation Action
+    // 9. Send Notification to the Workspace
+    await notificationsService.notifyWorkspace(page.metaConnection.workspaceId, {
+      title: "🚀 Novo Lead Meta Ads",
+      message: `${name} acabou de se cadastrar via formulário: ${form.name}`,
+      type: "SUCCESS",
+      eventKey: "newLead"
+    });
+
+    // 10. Execute WhatsApp Automation Action
     if (whatsappConfig && createdLead.phone) {
       try {
         const conn = await prisma.connection.findUnique({ where: { id: whatsappConfig.connectionId } });

@@ -1,4 +1,5 @@
 import prisma from "../config/prisma.js";
+import * as notificationsService from "../services/notifications.service.js";
 
 export const listNotifications = async (req, res) => {
   try {
@@ -59,18 +60,14 @@ export const createNotification = async (
   title,
   message,
   type = "INFO",
+  eventKey = "systemAlert"
 ) => {
-  try {
-    return await prisma.notification.create({
-      data: {
-        userId,
-        workspaceId,
-        title,
-        message,
-        type,
-      },
-    });
-  } catch (error) {
-    console.error("Error creating notification:", error);
-  }
+  return notificationsService.notifyUser({
+    userId,
+    workspaceId,
+    title,
+    message,
+    type,
+    eventKey
+  });
 };

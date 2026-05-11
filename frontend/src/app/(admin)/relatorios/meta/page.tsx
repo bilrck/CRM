@@ -57,13 +57,15 @@ export default function MetaReportPage() {
   
   // Filters
   const [filterAdAccount, setFilterAdAccount] = useState("all");
+  const [filterBusiness, setFilterBusiness] = useState("all");
 
-  const fetchReport = async (selectedRange = range) => {
+  const fetchReport = async (selectedRange = range, bizId = filterBusiness) => {
     setLoading(true);
     setError(null);
     try {
+      const bizParam = bizId !== "all" ? `&businessId=${bizId}` : "";
       const [reportRes, settingsRes, businessesRes] = await Promise.all([
-        fetch(`${API}/meta/report?range=${selectedRange}`, { credentials: "include" }),
+        fetch(`${API}/meta/report?range=${selectedRange}${bizParam}`, { credentials: "include" }),
         fetch(`${API}/meta/settings`, { credentials: "include" }),
         fetch(`${API}/meta/businesses`, { credentials: "include" })
       ]);
@@ -78,8 +80,14 @@ export default function MetaReportPage() {
       if (businessesRes.ok) {
         const bizData = await businessesRes.json();
         setBusinesses(bizData);
-        // Start fetching assets for each business sequentially to avoid rate limits
-        fetchAssetsSequentially(bizData);
+        
+        // OPTIMIZATION: Only fetch assets for the selected business OR if it's a small number of businesses
+        if (bizId && bizId !== "all") {
+           fetchSingleBusinessAssets(bizId);
+        } else if (bizData.length > 0 && bizData.length <= 3) {
+           // Small number of BMs: Fetch in parallel
+           bizData.forEach((b: any) => fetchSingleBusinessAssets(b.id));
+        }
       }
       
     } catch (e: any) {
@@ -89,22 +97,18 @@ export default function MetaReportPage() {
     }
   };
 
-  const fetchAssetsSequentially = async (bizList: any[]) => {
-    for (const biz of bizList) {
-      try {
-        setLoadingAssets(prev => ({ ...prev, [biz.id]: true }));
-        const res = await fetch(`${API}/meta/businesses/${biz.id}/assets`, { credentials: "include" });
-        if (res.ok) {
-          const assets = await res.json();
-          setBusinessAssets(prev => ({ ...prev, [biz.id]: assets }));
-        }
-      } catch (err) {
-        console.error(`Error fetching assets for ${biz.id}:`, err);
-      } finally {
-        setLoadingAssets(prev => ({ ...prev, [biz.id]: false }));
+  const fetchSingleBusinessAssets = async (businessId: string) => {
+    try {
+      setLoadingAssets(prev => ({ ...prev, [businessId]: true }));
+      const res = await fetch(`${API}/meta/businesses/${businessId}/assets`, { credentials: "include" });
+      if (res.ok) {
+        const assets = await res.json();
+        setBusinessAssets(prev => ({ ...prev, [businessId]: assets }));
       }
-      // Small delay between requests to be safe
-      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (err) {
+      console.error(`Error fetching assets for ${businessId}:`, err);
+    } finally {
+      setLoadingAssets(prev => ({ ...prev, [businessId]: false }));
     }
   };
 
@@ -130,14 +134,21 @@ export default function MetaReportPage() {
 
   const handleRangeChange = (val: string) => {
     setRange(val);
-    fetchReport(val);
+    fetchReport(val, filterBusiness);
+  };
+
+  const handleBusinessChange = (val: string) => {
+    setFilterBusiness(val);
+    setFilterAdAccount("all"); // Reset ad account filter when switching BM
+    fetchReport(range, val);
   };
 
   const fmt = (n: number) => n?.toLocaleString("pt-BR") ?? "0";
   const fmtMoney = (n: number) => `R$ ${(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
-  const ctr = report?.totalImpressions > 0
-    ? ((report.totalClicks / report.totalImpressions) * 100).toFixed(2) + "%"
-    : "0%";
+  
+  const ctr = report?.avgCtr ? report.avgCtr.toFixed(2) + "%" : "0%";
+  const cpl = report?.avgCpl ? fmtMoney(report.avgCpl) : "R$ 0,00";
+  const cpc = report?.totalClicks > 0 ? fmtMoney(report.totalSpend / report.totalClicks) : "R$ 0,00";
 
   if (error) {
     return (
@@ -180,17 +191,33 @@ export default function MetaReportPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Select value={filterBusiness} onValueChange={handleBusinessChange}>
+            <SelectTrigger className="w-56 h-10 border-2 bg-white">
+              <div className="flex items-center gap-2">
+                <Briefcase size={14} className="text-blue-600" />
+                <SelectValue placeholder="Todos os Portfólios" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Portfólios</SelectItem>
+              {businesses.map((b: any) => (
+                <SelectItem key={b.businessId} value={b.businessId}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={range} onValueChange={handleRangeChange}>
-            <SelectTrigger className="w-44 h-10 border-2">
+            <SelectTrigger className="w-44 h-10 border-2 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {DATE_RANGES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
             </SelectContent>
           </Select>
+
           <Button variant="outline" onClick={syncData} disabled={syncing} className="h-10 border-2">
             <RefreshCw size={16} className={`mr-2 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Sincronizando..." : "Sincronizar"}
+            {syncing ? "Sincronizar" : "Sincronizar"}
           </Button>
           <Button onClick={() => fetchReport()} disabled={loading} className="h-10 bg-blue-600">
             <RefreshCw size={16} className={`mr-2 ${loading ? "animate-spin" : ""}`} />
@@ -203,6 +230,7 @@ export default function MetaReportPage() {
       <div className="flex gap-2 bg-gray-100/50 p-1 rounded-xl w-fit">
         <Button variant="ghost" size="sm" className="bg-white shadow-sm font-bold text-blue-600">Visão Geral</Button>
         <Button variant="ghost" size="sm" onClick={() => window.location.href = '/relatorios/meta/insights'} className="text-gray-500 hover:text-blue-600">Insights Avançados</Button>
+        <Button variant="ghost" size="sm" onClick={() => window.location.href = '/relatorios/meta/leads-center'} className="text-emerald-600 font-bold hover:bg-emerald-50">Central de Leads (Novo)</Button>
         <Button variant="ghost" size="sm" onClick={() => window.location.href = '/relatorios/meta/leads'} className="text-gray-500 hover:text-blue-600">Leads Raw Data</Button>
       </div>
 
@@ -210,9 +238,9 @@ export default function MetaReportPage() {
       {(!metaConfig || metaConfig.reportModules?.summary) && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={DollarSign} label="Gasto Total" value={loading ? "..." : fmtMoney(report?.totalSpend)} sub={DATE_RANGES.find(r => r.value === range)?.label} color="blue" />
-          <StatCard icon={Eye} label="Impressões" value={loading ? "..." : fmt(report?.totalImpressions)} color="purple" />
+          <StatCard icon={Users} label="Leads (Meta)" value={loading ? "..." : fmt(report?.totalLeads)} sub={`CPL: ${loading ? "..." : cpl}`} color="green" />
           <StatCard icon={MousePointerClick} label="Cliques" value={loading ? "..." : fmt(report?.totalClicks)} sub={`CTR: ${loading ? "..." : ctr}`} color="orange" />
-          <StatCard icon={Users} label="Leads (Meta)" value={loading ? "..." : fmt(report?.totalLeads)} color="green" />
+          <StatCard icon={Eye} label="Impressões" value={loading ? "..." : fmt(report?.totalImpressions)} sub={`CPC: ${loading ? "..." : cpc}`} color="purple" />
         </div>
       )}
 

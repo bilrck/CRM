@@ -37,6 +37,7 @@ export const startFollowUpWorker = () => {
             "Lembrete de Follow-up",
             `Atenção: Follow-up com ${lead.name} em breve!`,
             "WARNING",
+            "message"
           );
         }
 

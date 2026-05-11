@@ -81,6 +81,7 @@ model Workspace {
   funnels           Funnel[]
   metaConnections   MetaConnection[]
   metaBusinesses    MetaBusiness[]
+  metaUnifiedLeads  MetaUnifiedLead[]
   clients           Client[]
   notifications     Notification[]
   automations       Automation[] // 🔥 NOVO: Automations/Triggers
@@ -684,4 +685,37 @@ model AiChatHistory {
   role      String
   content   String   @db.Text
   createdAt DateTime @default(now())
+}
+model MetaUnifiedLead {
+  id               Int       @id @default(autoincrement())
+
+  metaLeadId       String    @unique
+
+  name             String?
+  email            String?
+  phone            String?
+
+  pageId           String?
+  pageName         String?
+
+  formId           String?
+  formName         String?
+
+  campaignId       String?
+  campaignName     String?
+
+  adId             String?
+  adsetId          String?
+
+  createdTime      DateTime?
+
+  rawData          Json
+
+  workspaceId      Int
+  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+
+  createdAt        DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([metaLeadId])
 }

@@ -43,7 +43,8 @@ export const startBillingWorker = () => {
                             null, // Global notification or per workspace? null for global
                             "Lembrete de Assinatura",
                             config.message || "Sua assinatura vence em breve. Regularize para não perder o acesso.",
-                            "WARNING"
+                            "WARNING",
+                            "systemAlert"
                         );
                     }
 

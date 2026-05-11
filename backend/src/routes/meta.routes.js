@@ -30,6 +30,10 @@ router.get("/report", metaController.getMetaReport);
 router.post("/sync", metaController.syncMeta);
 router.post("/forms/:formId/sync-leads", metaController.syncFormLeads);
 
+// Leads Center
+router.get("/leads-center", metaController.getLeadsCenter);
+router.post("/sync-leads-center", metaController.syncLeadsCenter);
+
 // Advanced Settings
 router.get("/settings", metaController.getSettings);
 router.put("/settings", metaController.updateSettings);

@@ -79,7 +79,7 @@ export const chat = async (req, res) => {
     };
 
     try {
-      const [allLeads, userConnections, userData, metaConnection, funnels] = await Promise.all([
+      const [allLeads, userConnections, userData, metaConnection, funnels, unifiedLeadsCount] = await Promise.all([
         prisma.lead.findMany({ 
           where: { workspaceId: req.workspaceId },
           include: { stage: { select: { name: true } } }
@@ -99,12 +99,14 @@ export const chat = async (req, res) => {
         prisma.funnel.findMany({
           where: { workspaceId: req.workspaceId },
           include: { stages: { select: { id: true, name: true } } }
-        })
+        }),
+        prisma.metaUnifiedLead.count({ where: { workspaceId: req.workspaceId } })
       ]);
 
       leads = allLeads.slice(0, 15);
       connections = userConnections;
       user = userData;
+      metrics.totalUnifiedLeads = unifiedLeadsCount;
 
       metrics.totalLeads = allLeads.length;
       metrics.totalValue = allLeads.reduce((acc, l) => acc + Number(l.value || 0), 0);
@@ -190,23 +192,33 @@ ${pagesInfo}`;
       console.error("Erro ao buscar contexto para IA:", dbError);
     }
 
+    // 1.1. Check if it's a simple greeting to avoid data dump
+    const isGreeting = /^(oi|olá|ola|bom dia|boa tarde|boa noite|hello|hi|ei|opa)$/i.test(message.trim());
+
     const context = `
       DADOS DO SISTEMA (USUÁRIO ${user?.name}):
-      - Total de Leads no CRM: ${metrics.totalLeads}
-      - Valor Acumulado (Budget): R$ ${metrics.totalValue.toFixed(2)}
-      - Distribuição por Estágio do Funil: ${JSON.stringify(metrics.leadsByStage)}
+      - Total de Leads no CRM (Funil): ${metrics.totalLeads}
+      - Valor Acumulado no Funil: R$ ${metrics.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      - Distribuição por Estágio: ${JSON.stringify(metrics.leadsByStage)}
       - Conexões WhatsApp Ativas: ${connections.length}
+      
+      CENTRAL DE LEADS META (NOVO):
+      - Total de Leads Unificados: ${metrics.totalUnifiedLeads || 0}
+      
 ${metrics.metaContext || "      - Meta Ads: não conectado ou erro na sincronização"}
 
       DETALHES DOS LEADS RECENTES (Últimos 15):
       ${leads.map(l => `- ${l.name} (${l.phone || 'Sem tel'}) - Valor: R$ ${Number(l.value || 0).toFixed(2)} - Estágio: ${l.stage?.name || l.status}`).join('\n')}
 
-      INSTRUÇÃO PARA O ASSISTENTE RASTREIA AI:
-      1. Você é um analista de performance e consultor de vendas. Seja amigável e profissional.
-      2. Priorize responder com os dados numéricos presentes no contexto acima.
-      3. Se o usuário perguntar sobre gastos ou anúncios e os dados de "LIVE REPORT" estiverem disponíveis, responda diretamente com os valores.
-      4. Somente sugira acessar "/relatorios/meta" ou "/dashboard" se o usuário pedir gráficos complexos ou se os dados específicos não estiverem no contexto.
-      5. Se houver discrepância entre leads no CRM (${metrics.totalLeads}) e leads na Meta, explique que isso pode ser devido a filtros ou leads manuais.
+      INSTRUÇÕES CRÍTICAS PARA O ASSISTENTE:
+      1. Você é o Assistente Rastreia AI. Seja direto, amigável e profissional.
+      2. COMPORTAMENTO DE SAUDAÇÃO: Se o usuário disser apenas "Olá", "Oi" ou similar, responda de forma breve e educada, perguntando como pode ajudar. NÃO faça um resumo completo de dados a menos que seja solicitado ou relevante para a conversa.
+      3. CENTRAL DE LEADS: O sistema agora possui uma "Central de Leads Meta" que unifica leads de todas as páginas e BMs. Mencione isso se o usuário perguntar sobre leads que "ainda não caíram" ou sobre sincronização.
+      4. PRECISÃO: Use os dados numéricos do contexto acima com precisão. Se houver discrepância entre leads no funil (${metrics.totalLeads}) e na Central de Leads (${metrics.totalUnifiedLeads || 0}), explique que os leads da Central precisam ser convertidos ou movidos para o funil.
+      5. LINKS ÚTEIS: 
+         - Central de Leads: /relatorios/meta/leads-center
+         - Relatórios Meta: /relatorios/meta
+         - Configurações: /meta/settings
     `;
 
     // 2. Save User Message
