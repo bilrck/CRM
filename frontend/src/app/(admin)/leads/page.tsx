@@ -41,6 +41,7 @@ import {
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 interface Lead {
   id: number;
@@ -53,6 +54,7 @@ interface Lead {
   lastContact?: string;
   funnelId?: number;
   stageId?: number;
+  customFields?: Record<string, any>;
 }
 
 interface Funnel {
@@ -78,22 +80,27 @@ export default function Leads() {
     status: "new",
     value: 0,
     funnelId: "",
-    stageId: ""
+    stageId: "",
+    customFields: {} as Record<string, any>
   });
+  const [customFields, setCustomFields] = useState<any[]>([]);
 
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const [leadsRes, funnelsRes] = await Promise.all([
+      const [leadsRes, funnelsRes, fieldsRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads`, { credentials: 'include' }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/funnel`, { credentials: 'include' })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/funnel`, { credentials: 'include' }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/custom-fields?entityType=LEAD`, { credentials: 'include' })
       ]);
       
       const leadsData = await leadsRes.json();
       const funnelsData = await funnelsRes.json();
+      const fieldsData = await fieldsRes.json();
       
       setLeads(Array.isArray(leadsData) ? leadsData : []);
       setFunnels(Array.isArray(funnelsData) ? funnelsData : []);
+      setCustomFields(Array.isArray(fieldsData) ? fieldsData : []);
     } catch (err) {
       console.error(err);
       toast.error("Erro ao carregar dados");
@@ -196,11 +203,11 @@ export default function Leads() {
           className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto"
           onClick={() => {
              setEditingLead(null);
-             setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "" });
-             if(funnels.length > 0) {
-                 setFormData(prev => ({ ...prev, funnelId: funnels[0].id.toString() }));
-             }
-             setIsDialogOpen(true);
+              setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "", customFields: {} });
+              if(funnels.length > 0) {
+                  setFormData(prev => ({ ...prev, funnelId: funnels[0].id.toString() }));
+              }
+              setIsDialogOpen(true);
           }}
         >
           <Plus size={18} className="mr-2" />
@@ -376,10 +383,11 @@ export default function Leads() {
                               source: lead.source || "",
                               status: lead.status,
                               value: Number(lead.value) || 0,
-                              funnelId: lead.funnelId?.toString() || "",
-                              stageId: lead.stageId?.toString() || ""
-                            });
-                            setIsDialogOpen(true);
+                               funnelId: lead.funnelId?.toString() || "",
+                               stageId: lead.stageId?.toString() || "",
+                               customFields: lead.customFields || {}
+                             });
+                             setIsDialogOpen(true);
                           }}
                         >
                            Editar
@@ -510,6 +518,62 @@ export default function Leads() {
                 }
               />
             </div>
+
+            {/* 🔥 Custom Fields */}
+            {customFields.length > 0 && (
+              <div className="pt-4 border-t space-y-4">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Informações Adicionais</p>
+                <div className="grid grid-cols-1 gap-4">
+                  {customFields.map(field => (
+                    <div key={field.id} className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        {field.name}
+                        {field.isRequired && <span className="text-red-500">*</span>}
+                      </Label>
+                      {field.type === "SELECT" ? (
+                        <Select 
+                          value={formData.customFields?.[field.name] || ""} 
+                          onValueChange={val => setFormData(prev => ({ 
+                            ...prev, 
+                            customFields: { ...prev.customFields, [field.name]: val } 
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={field.placeholder || "Selecione..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {field.options?.map((opt: string) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : field.type === "BOOLEAN" ? (
+                        <div className="flex items-center space-x-2 h-10">
+                          <Switch 
+                            checked={!!formData.customFields?.[field.name]}
+                            onCheckedChange={val => setFormData(prev => ({ 
+                              ...prev, 
+                              customFields: { ...prev.customFields, [field.name]: val } 
+                            }))}
+                          />
+                          <span className="text-sm text-muted-foreground">{formData.customFields?.[field.name] ? "Sim" : "Não"}</span>
+                        </div>
+                      ) : (
+                        <Input 
+                          type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+                          placeholder={field.placeholder || ""}
+                          value={formData.customFields?.[field.name] || ""}
+                          onChange={e => setFormData(prev => ({ 
+                            ...prev, 
+                            customFields: { ...prev.customFields, [field.name]: e.target.value } 
+                          }))}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>

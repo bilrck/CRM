@@ -62,22 +62,20 @@ export const receiveMetaWebhook = async (req, res) => {
           if (change.field === "leadgen") {
             const { leadgen_id, page_id, form_id } = change.value;
             
-            // Check if lead already processed (Duplication prevention)
-            const existing = await prisma.lead.findFirst({
-              where: { 
-                 source: { contains: leadgen_id }
-              }
+            // Check if lead already processed via MetaUnifiedLead (most reliable)
+            const existing = await prisma.metaUnifiedLead.findUnique({
+              where: { metaLeadId: leadgen_id }
             });
 
             if (existing) {
-              console.log(`ℹ️ Lead ${leadgen_id} já foi processado.`);
+              console.log(`ℹ️ [Webhook] Lead ${leadgen_id} já foi processado anteriormente.`);
               continue;
             }
 
-            console.log(`📣 Novo lead detectado: ${leadgen_id} na página ${page_id}`);
+            console.log(`📣 [Webhook] Novo lead detectado: ${leadgen_id} | Página: ${page_id} | Form: ${form_id}`);
 
             processNewLead(leadgen_id, page_id, form_id).catch((err) => {
-              console.error("Erro assíncrono ao processar lead da Meta:", err);
+              console.error(`❌ [Webhook] Erro ao processar lead ${leadgen_id}:`, err.message, err.stack);
             });
           }
         }
@@ -102,30 +100,52 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       include: { metaConnection: true },
     });
 
-    if (!page || !page.isConnected) {
-      console.log(
-        `⚠️ Página ${fbPageId} não está conectada ou ativa no sistema.`,
-      );
+    if (!page) {
+      console.warn(`⚠️ [Webhook] Página ${fbPageId} não encontrada no sistema. Sincronize a conta Meta.`);
       return;
     }
 
-    // 2. Find the form mapping
-    const form = await prisma.metaLeadForm.findUnique({
+    if (!page.isConnected) {
+      console.warn(`⚠️ [Webhook] Página ${fbPageId} ("${page.name}") não está com sincronização ativa.`);
+      return;
+    }
+
+    // 2. Find or auto-register the form
+    let form = await prisma.metaLeadForm.findUnique({
       where: { formId: fbFormId },
     });
 
     if (!form) {
-      console.log(`⚠️ Formulário ${fbFormId} não mapeado no sistema.`);
-      return;
+      console.log(`📝 [Webhook] Formulário ${fbFormId} não mapeado — registrando automaticamente...`);
+      try {
+        // Try to get form name from Meta API
+        const formData = await metaService.getPageForms(page.pageId, page.accessToken);
+        const metaForm = formData.find(f => f.id === fbFormId);
+        form = await prisma.metaLeadForm.create({
+          data: {
+            formId: fbFormId,
+            name: metaForm?.name || `Formulário ${fbFormId}`,
+            status: metaForm?.status || "ACTIVE",
+            pageId: page.id,
+          }
+        });
+        console.log(`✅ [Webhook] Formulário "${form.name}" registrado automaticamente.`);
+      } catch (registerErr) {
+        console.error(`❌ [Webhook] Falha ao registrar formulário ${fbFormId}:`, registerErr.message);
+        return;
+      }
     }
 
     // 3. Get Lead Details from Meta using Page Access Token
+    console.log(`🔍 [Webhook] Buscando dados do lead ${leadId} via API Meta...`);
     const rawLead = await metaService.getLeadData(leadId, page.accessToken);
 
     if (!rawLead || !rawLead.field_data) {
-      console.error("Dados do lead vazios ou inválidos recebidos da Meta API.");
+      console.error(`❌ [Webhook] Dados do lead ${leadId} inválidos ou sem field_data. Resposta:`, JSON.stringify(rawLead));
       return;
     }
+
+    console.log(`📋 [Webhook] Lead ${leadId} com ${rawLead.field_data.length} campos recebido.`);
 
     let name = "Lead Meta";
     let email = null;
@@ -209,7 +229,44 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       }
     }
 
-    // 7. Create MetaUnifiedLead (Unified Center)
+    // 7. Auto-Create Custom Fields if enabled
+    const customFieldsData = {};
+    if (form.autoCreateFields) {
+      try {
+        const workspaceId = page.metaConnection.workspaceId;
+        // Get existing custom fields for this workspace
+        const existingFields = await prisma.customField.findMany({
+          where: { workspaceId, entityType: "LEAD" }
+        });
+        const existingFieldNames = new Set(existingFields.map(f => f.name.toLowerCase()));
+
+        for (const [key, val] of Object.entries(metaFields)) {
+          const lowerKey = key.toLowerCase();
+          // Skip standard fields that we already mapped
+          if (["full_name", "name", "email", "phone_number", "phone"].includes(lowerKey)) continue;
+
+          // If field doesn't exist, create it
+          if (!existingFieldNames.has(lowerKey)) {
+            await prisma.customField.create({
+              data: {
+                name: key, // Use original case for name
+                type: "TEXT",
+                entityType: "LEAD",
+                workspaceId
+              }
+            });
+            existingFieldNames.add(lowerKey);
+            console.log(`✨ Criado novo campo personalizado via Meta: ${key}`);
+          }
+          customFieldsData[key] = val;
+        }
+      } catch (cfErr) {
+        console.error("Erro ao auto-criar campos personalizados:", cfErr);
+      }
+    }
+
+    // 8. Create MetaUnifiedLead (Unified Center)
+    const leadTime = rawLead.created_time ? new Date(rawLead.created_time) : new Date();
     await prisma.metaUnifiedLead.upsert({
       where: { metaLeadId: leadId },
       update: {
@@ -220,7 +277,7 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
         pageName: page.name,
         formId: fbFormId,
         formName: form.name,
-        createdTime: new Date(rawLead.created_time),
+        createdTime: leadTime,
         rawData: rawLead
       },
       create: {
@@ -232,13 +289,14 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
         pageName: page.name,
         formId: fbFormId,
         formName: form.name,
-        createdTime: new Date(rawLead.created_time),
+        createdTime: leadTime,
         rawData: rawLead,
         workspaceId: page.metaConnection.workspaceId
       }
     });
+    console.log(`💾 [Webhook] MetaUnifiedLead salvo para: ${name}`);
 
-    // 8. Create Lead in CRM (Main Leads)
+    // 9. Create Lead in CRM (Main Leads)
     const createdLead = await prisma.lead.create({
       data: {
         name,
@@ -247,18 +305,19 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
         source: `Meta Ads: ${page.name} (ID: ${leadId})`,
         workspaceId: page.metaConnection.workspaceId,
         metaLeadFormId: form.id,
-        funnelId,
-        stageId,
-        status: funnelId ? undefined : "new",
+        funnelId: funnelId || null,
+        stageId: stageId || null,
+        status: "new",
+        customFields: Object.keys(customFieldsData).length > 0 ? customFieldsData : {},
         metadata: {
           fbLeadId: leadId,
           fbFormId,
           fbPageId,
           fields: metaFields,
-          raw: rawLead
         }
       },
     });
+    console.log(`✅ [Webhook] Lead CRM criado com ID ${createdLead.id} para: ${name}`);
 
     console.log(
       `✅ Lead ${name} importado com sucesso para Central de Leads e CRM (Form: ${form.name})`,

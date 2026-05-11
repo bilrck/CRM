@@ -404,11 +404,15 @@ export const listPageForms = async (req, res) => {
 export const mapForm = async (req, res) => {
   try {
     const { id } = req.params;
-    const { funnelId, stageId } = req.body;
+    const { funnelId, stageId, autoCreateFields } = req.body;
 
     const updated = await prisma.metaLeadForm.update({
       where: { id: Number(id) },
-      data: { funnelId, stageId },
+      data: { 
+        funnelId: funnelId ? Number(funnelId) : null, 
+        stageId: stageId ? Number(stageId) : null,
+        autoCreateFields: autoCreateFields !== undefined ? autoCreateFields : undefined
+      },
     });
 
     res.json(updated);
@@ -596,26 +600,31 @@ export const getMetaReport = async (req, res) => {
     if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
 
     // Fetch live data from Meta API + DB data in parallel
-    const [liveReport, dbPages] = await Promise.allSettled([
+    const [liveReport, dbPages, unifiedCounts] = await Promise.allSettled([
       metaService.getMetaReport(connection.accessToken, range, businessId),
       prisma.metaPage.findMany({
         where: { 
           metaConnection: { workspaceId },
-          // If businessId is provided, filter pages by the internal business record
           business: businessId ? { businessId } : undefined
         },
         include: {
-          forms: {
-            include: { _count: { select: { leads: true } } }
-          }
+          forms: true
         }
+      }),
+      prisma.metaUnifiedLead.groupBy({
+        by: ['formId'],
+        where: { workspaceId },
+        _count: { formId: true }
       })
     ]);
 
     const report = liveReport.status === "fulfilled" ? liveReport.value : {};
     const pages = dbPages.status === "fulfilled" ? dbPages.value : [];
+    const countsMap = unifiedCounts.status === "fulfilled" 
+      ? Object.fromEntries(unifiedCounts.value.map(c => [c.formId, c._count.formId]))
+      : {};
 
-    // Enrich pages with lead counts
+    // Enrich pages with lead counts from the Unified Center
     const enrichedPages = pages.map(page => ({
       id: page.id,
       name: page.name,
@@ -628,9 +637,9 @@ export const getMetaReport = async (req, res) => {
         name: f.name,
         formId: f.formId,
         status: f.status,
-        leadCount: f._count?.leads || 0,
+        leadCount: countsMap[f.formId] || 0,
       })),
-      totalLeads: page.forms.reduce((sum, f) => sum + (f._count?.leads || 0), 0),
+      totalLeads: page.forms.reduce((sum, f) => sum + (countsMap[f.formId] || 0), 0),
     }));
 
     res.json({ ...report, pages: enrichedPages, connectionName: connection.name });

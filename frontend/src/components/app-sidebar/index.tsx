@@ -79,6 +79,7 @@ const GROUPS: MenuGroup[] = [
       { title: "Leads", url: "/leads", icon: UsersRound },
       { title: "Funil de Vendas", url: "/funil", icon: Filter },
       { title: "Clientes", url: "/clientes", icon: Briefcase, managerOnly: true },
+      { title: "Campos Personalizados", url: "/vendas/campos-personalizados", icon: Activity, managerOnly: true },
     ]
   },
   {

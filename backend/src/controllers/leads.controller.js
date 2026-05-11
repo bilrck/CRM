@@ -4,7 +4,7 @@ import { executeAutomations } from "./automations.controller.js";
 
 export const createLead = async (req, res) => {
   try {
-    const { name, email, phone, tags, value, status, source } = req.body;
+    const { name, email, phone, tags, value, status, source, customFields } = req.body;
 
     if (!req.workspaceId)
       return res.status(400).json({ error: "Workspace não identificado" });
@@ -20,6 +20,7 @@ export const createLead = async (req, res) => {
         tags: tags || [],
         ownerId: req.user.id,
         workspaceId: req.workspaceId,
+        customFields: customFields || {},
         funnelId: req.body.funnelId ? Number(req.body.funnelId) : null,
         stageId: req.body.stageId ? Number(req.body.stageId) : null,
       },
@@ -88,7 +89,7 @@ export const getLead = async (req, res) => {
 
 export const updateLead = async (req, res) => {
   const id = Number(req.params.id);
-  const { name, email, phone, tags, status, value, source } = req.body;
+  const { name, email, phone, tags, status, value, source, customFields } = req.body;
 
   // Verifica permissão antes de update
   const existing = await prisma.lead.findUnique({ where: { id } });
@@ -108,6 +109,7 @@ export const updateLead = async (req, res) => {
       tags,
       status,
       source,
+      customFields: customFields !== undefined ? customFields : undefined,
       value: value !== undefined ? Number(value) : undefined,
       funnelId: req.body.funnelId ? Number(req.body.funnelId) : undefined,
       stageId: req.body.stageId ? Number(req.body.stageId) : undefined,

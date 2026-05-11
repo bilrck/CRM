@@ -48,7 +48,7 @@ export default function MetaIntegrationPage() {
     const [selectedPageForms, setSelectedPageForms] = useState<any[]>([]);
     const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
     const [activeMappingForm, setActiveMappingForm] = useState<any>(null);
-    const [mappingConfig, setMappingConfig] = useState({ funnelId: "", stageId: "" });
+    const [mappingConfig, setMappingConfig] = useState({ funnelId: "", stageId: "", autoCreateFields: false });
     const [connectingOAuth, setConnectingOAuth] = useState(false);
     const [adAccounts, setAdAccounts] = useState<any[]>([]);
     const [businesses, setBusinesses] = useState<any[]>([]);
@@ -235,7 +235,8 @@ export default function MetaIntegrationPage() {
         setActiveMappingForm(form);
         setMappingConfig({ 
             funnelId: form.funnelId?.toString() || "", 
-            stageId: form.stageId?.toString() || "" 
+            stageId: form.stageId?.toString() || "",
+            autoCreateFields: !!form.autoCreateFields
         });
         setIsMappingDialogOpen(true);
     };
@@ -247,7 +248,8 @@ export default function MetaIntegrationPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
                     funnelId: Number(mappingConfig.funnelId), 
-                    stageId: Number(mappingConfig.stageId) 
+                    stageId: Number(mappingConfig.stageId),
+                    autoCreateFields: mappingConfig.autoCreateFields
                 }),
                 credentials: "include"
             });
@@ -257,7 +259,7 @@ export default function MetaIntegrationPage() {
                 setIsMappingDialogOpen(false);
                 // Refresh small forms list
                 setSelectedPageForms(selectedPageForms.map(f => f.id === activeMappingForm.id 
-                    ? { ...f, funnelId: Number(mappingConfig.funnelId), stageId: Number(mappingConfig.stageId) } 
+                    ? { ...f, funnelId: Number(mappingConfig.funnelId), stageId: Number(mappingConfig.stageId), autoCreateFields: mappingConfig.autoCreateFields } 
                     : f
                 ));
             }
@@ -440,7 +442,8 @@ export default function MetaIntegrationPage() {
                                                 <th className="px-6 py-4 font-semibold uppercase">Formulário</th>
                                                 <th className="px-6 py-4 font-semibold uppercase">Status</th>
                                                 <th className="px-6 py-4 font-semibold uppercase">Destino (Funil)</th>
-                                                <th className="px-6 py-4 font-semibold uppercase text-right">Ações</th>
+                                                <th className="px-6 py-4 font-semibold uppercase">Auto-campos</th>
+                                                 <th className="px-6 py-4 font-semibold uppercase text-right">Ações</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
@@ -467,6 +470,11 @@ export default function MetaIntegrationPage() {
                                                                 <AlertTriangle size={14} /> Não Mapeado
                                                             </span>
                                                         )}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <Badge variant={form.autoCreateFields ? 'default' : 'secondary'} className={form.autoCreateFields ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : ''}>
+                                                            {form.autoCreateFields ? '✨ Ativo' : 'Desativado'}
+                                                        </Badge>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <Button variant="ghost" size="sm" onClick={() => openMappingModal(form)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
@@ -981,6 +989,21 @@ export default function MetaIntegrationPage() {
                                 </Select>
                             </div>
                         )}
+
+                        <div className="pt-4 border-t">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base font-semibold">Auto-criar campos personalizados</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Cria automaticamente campos no CRM para cada campo extra do formulário Meta.
+                                    </p>
+                                </div>
+                                <Switch 
+                                    checked={mappingConfig.autoCreateFields}
+                                    onCheckedChange={(val) => setMappingConfig({ ...mappingConfig, autoCreateFields: val })}
+                                />
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsMappingDialogOpen(false)}>Cancelar</Button>

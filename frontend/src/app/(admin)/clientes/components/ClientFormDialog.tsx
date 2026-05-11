@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -51,7 +52,28 @@ export function ClientFormDialog({ isOpen, onClose, onSuccess }: ClientFormDialo
     lifetimeValue: "",
     status: "ACTIVE",
     observations: "",
+    customFields: {} as Record<string, any>,
   });
+
+  const [customFieldDefinitions, setCustomFieldDefinitions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCustomFields();
+    }
+  }, [isOpen]);
+
+  const fetchCustomFields = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/custom-fields?entityType=CLIENT`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomFieldDefinitions(data);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar campos personalizados:", err);
+    }
+  };
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -102,6 +124,7 @@ export function ClientFormDialog({ isOpen, onClose, onSuccess }: ClientFormDialo
           lifetimeValue: "",
           status: "ACTIVE",
           observations: "",
+          customFields: {},
         });
       } else {
         const error = await res.json();
@@ -122,6 +145,7 @@ export function ClientFormDialog({ isOpen, onClose, onSuccess }: ClientFormDialo
     { id: "endereco", label: "Endereço" },
     { id: "social", label: "Social" },
     { id: "negocio", label: "Negócio" },
+    { id: "personalizado", label: "Personalizado" },
   ];
 
   return (
@@ -396,6 +420,65 @@ export function ClientFormDialog({ isOpen, onClose, onSuccess }: ClientFormDialo
                   />
                 </div>
               </>
+            )}
+
+            {/* 🔥 Personalizado Tab */}
+            {activeTab === "personalizado" && (
+              <div className="space-y-4">
+                {customFieldDefinitions.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground italic">Nenhum campo personalizado definido para clientes.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {customFieldDefinitions.map(field => (
+                      <div key={field.id} className="space-y-2">
+                        <Label className="flex items-center gap-1">
+                          {field.name}
+                          {field.isRequired && <span className="text-red-500">*</span>}
+                        </Label>
+                        {field.type === "SELECT" ? (
+                          <Select 
+                            value={formData.customFields?.[field.name] || ""} 
+                            onValueChange={val => setFormData(prev => ({ 
+                              ...prev, 
+                              customFields: { ...prev.customFields, [field.name]: val } 
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={field.placeholder || "Selecione..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {field.options?.map((opt: string) => (
+                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : field.type === "BOOLEAN" ? (
+                          <div className="flex items-center space-x-2 h-10">
+                            <Switch 
+                              checked={!!formData.customFields?.[field.name]}
+                              onCheckedChange={val => setFormData(prev => ({ 
+                                ...prev, 
+                                customFields: { ...prev.customFields, [field.name]: val } 
+                              }))}
+                            />
+                            <span className="text-sm text-muted-foreground">{formData.customFields?.[field.name] ? "Sim" : "Não"}</span>
+                          </div>
+                        ) : (
+                          <Input 
+                            type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+                            placeholder={field.placeholder || ""}
+                            value={formData.customFields?.[field.name] || ""}
+                            onChange={e => setFormData(prev => ({ 
+                              ...prev, 
+                              customFields: { ...prev.customFields, [field.name]: e.target.value } 
+                            }))}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

@@ -94,6 +94,7 @@ export const createClient = async (req, res) => {
       status,
       observations,
       assignedToId,
+      customFields,
     } = req.body;
 
     // Validation
@@ -126,6 +127,7 @@ export const createClient = async (req, res) => {
         status: status || "ACTIVE",
         observations,
         workspaceId,
+        customFields: customFields || {},
         assignedToId: assignedToId || userId,
       },
       include: {
@@ -201,6 +203,7 @@ export const updateClient = async (req, res) => {
       status,
       observations,
       assignedToId,
+      customFields,
     } = req.body;
 
     // Check if client exists and belongs to workspace
@@ -240,6 +243,7 @@ export const updateClient = async (req, res) => {
         lifetimeValue: lifetimeValue ? parseFloat(lifetimeValue) : null,
         status,
         observations,
+        customFields: customFields !== undefined ? customFields : undefined,
         assignedToId,
       },
       include: {

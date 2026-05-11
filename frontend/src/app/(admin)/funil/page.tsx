@@ -26,6 +26,14 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 interface Lead {
   id: number;
@@ -77,6 +85,8 @@ export default function Funil() {
   const [selectedStageForLead, setSelectedStageForLead] = useState<number | null>(null);
   const [leadForm, setLeadForm] = useState({ name: "", email: "", phone: "", value: "" });
   const [creatingLead, setCreatingLead] = useState(false);
+  const [customFields, setCustomFields] = useState<any[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   const fetchFunnels = useCallback(async () => {
     try {
@@ -99,7 +109,20 @@ export default function Funil() {
 
   useEffect(() => {
     fetchFunnels();
+    fetchCustomFields();
   }, [fetchFunnels]);
+
+  const fetchCustomFields = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/custom-fields?entityType=LEAD`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomFields(data);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar campos personalizados:", err);
+    }
+  };
 
   const selectedFunnel = funnels.find(f => f.id.toString() === selectedFunnelId);
   const stages = selectedFunnel?.stages || [];
@@ -378,7 +401,8 @@ export default function Funil() {
           funnelId: selectedFunnel.id,
           stageId: selectedStageForLead,
           status: "new",
-          source: "manual"
+          source: "manual",
+          customFields: customFieldValues
         }),
         credentials: "include",
       });
@@ -387,6 +411,7 @@ export default function Funil() {
         toast.success("Lead adicionado com sucesso!");
         setIsAddLeadDialogOpen(false);
         setLeadForm({ name: "", email: "", phone: "", value: "" });
+        setCustomFieldValues({});
         fetchFunnels();
       } else {
         const data = await res.json();
@@ -753,6 +778,53 @@ export default function Funil() {
                 onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
               />
             </div>
+
+            {/* 🔥 Custom Fields */}
+            {customFields.length > 0 && (
+              <div className="pt-4 border-t space-y-4">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Informações Adicionais</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {customFields.map(field => (
+                    <div key={field.id} className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        {field.name}
+                        {field.isRequired && <span className="text-red-500">*</span>}
+                      </Label>
+                      {field.type === "SELECT" ? (
+                        <Select 
+                          value={customFieldValues[field.name] || ""} 
+                          onValueChange={val => setCustomFieldValues(prev => ({ ...prev, [field.name]: val }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={field.placeholder || "Selecione..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {field.options?.map((opt: string) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : field.type === "BOOLEAN" ? (
+                        <div className="flex items-center space-x-2 h-10">
+                          <Switch 
+                            checked={!!customFieldValues[field.name]}
+                            onCheckedChange={val => setCustomFieldValues(prev => ({ ...prev, [field.name]: val }))}
+                          />
+                          <span className="text-sm text-muted-foreground">{customFieldValues[field.name] ? "Sim" : "Não"}</span>
+                        </div>
+                      ) : (
+                        <Input 
+                          type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+                          placeholder={field.placeholder || ""}
+                          value={customFieldValues[field.name] || ""}
+                          onChange={e => setCustomFieldValues(prev => ({ ...prev, [field.name]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddLeadDialogOpen(false)}>Cancelar</Button>

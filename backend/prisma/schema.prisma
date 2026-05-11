@@ -85,6 +85,7 @@ model Workspace {
   clients           Client[]
   notifications     Notification[]
   automations       Automation[] // 🔥 NOVO: Automations/Triggers
+  customFields      CustomField[]
   properties        Property[] // 🔥 NOVO: Imóveis
 
   createdAt DateTime @default(now())
@@ -164,6 +165,22 @@ model ApiKey {
   createdAt   DateTime  @default(now())
 }
 
+model CustomField {
+  id          Int       @id @default(autoincrement())
+  name        String
+  type        String    @default("TEXT") // TEXT, NUMBER, DATE, SELECT, BOOLEAN
+  options     Json?     // Options for SELECT type: ["Opção 1", "Opção 2"]
+  entityType  String    @default("LEAD") // LEAD, CLIENT
+  placeholder String?
+  isRequired  Boolean   @default(false)
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+}
+
 model Lead {
   id        Int      @id @default(autoincrement())
   name      String
@@ -173,6 +190,7 @@ model Lead {
   source    String?  @default("manual")
   value     Decimal? @default(0) @db.Decimal(10, 2)
   tags      String[] @default([])
+  customFields Json?    @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -523,6 +541,8 @@ model MetaLeadForm {
   pageId Int
   page   MetaPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
+  autoCreateFields Boolean @default(false)
+
   leads Lead[] @relation("FormLeads")
 
   createdAt DateTime @default(now())
@@ -563,6 +583,7 @@ model Client {
   status          String   @default("ACTIVE") // ACTIVE, INACTIVE, CHURNED
   acquisitionDate DateTime @default(now())
   observations    String?  @db.Text
+  customFields    Json?    @default("{}")
 
   // 🔥 Relations
   workspaceId  Int

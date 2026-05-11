@@ -38,6 +38,7 @@ import automationsRoutes from "./routes/automations.routes.js";
 import licenseRoutes from "./routes/license.routes.js";
 import planRoutes from "./routes/plan.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
+import customFieldsRoutes from "./routes/custom-fields.routes.js";
 import helmet from "helmet";
 
 const app = express();
@@ -107,6 +108,7 @@ app.use("/roles", authMiddleware, roleRoutes);
 app.use("/meta", authMiddleware, subscriptionMiddleware, metaRoutes);
 app.use("/upload", authMiddleware, subscriptionMiddleware, uploadRoutes);
 app.use("/clients", authMiddleware, subscriptionMiddleware, clientsRoutes); 
+app.use("/custom-fields", authMiddleware, subscriptionMiddleware, customFieldsRoutes);
 app.use("/notifications", authMiddleware, subscriptionMiddleware, notificationsRoutes);
 app.use("/license", licenseRoutes);
 app.use("/plans", planRoutes);

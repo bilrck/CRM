@@ -73,12 +73,13 @@ export const subscribePageToWebhooks = async (pageId, pageAccessToken) => {
 
 
 /**
- * Fetches detailed content for a specific Lead.
+ * Fetches detailed content for a specific Lead, including all form fields.
+ * IMPORTANT: Meta API requires explicit `fields` param to return field_data.
  */
 export const getLeadData = async (leadId, pageAccessToken) => {
   try {
     return await request(
-      `${FB_GRAPH_URL}/${leadId}?access_token=${pageAccessToken}`,
+      `${FB_GRAPH_URL}/${leadId}?access_token=${pageAccessToken}&fields=id,created_time,field_data`,
     );
   } catch (error) {
     console.error("Meta getLeadData error:", error.message);
