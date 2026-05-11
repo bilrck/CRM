@@ -7,130 +7,130 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id             Int           @id @default(autoincrement())
-  name           String
-  email          String        @unique
-  password       String
-  role           String
-  forcePasswordChange Boolean  @default(false)
-  createdAt      DateTime      @default(now())
-  phone          String?
-  avatarUrl      String?
-  notificationSettings  Json?         @default("{\"email\": true, \"push\": true, \"whatsapp\": false, \"newLead\": true, \"conversion\": true, \"message\": true, \"dailyReport\": false, \"weeklyReport\": true}")
-  preferences    Json?         @default("{\"theme\": \"light\", \"language\": \"pt-BR\", \"timezone\": \"America/Sao_Paulo\", \"dateFormat\": \"DD/MM/YYYY\", \"currency\": \"BRL\"}")
-  
+  id                   Int      @id @default(autoincrement())
+  name                 String
+  email                String   @unique
+  password             String
+  role                 String
+  forcePasswordChange  Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  phone                String?
+  avatarUrl            String?
+  notificationSettings Json?    @default("{\"email\": true, \"push\": true, \"whatsapp\": false, \"newLead\": true, \"conversion\": true, \"message\": true, \"dailyReport\": false, \"weeklyReport\": true}")
+  preferences          Json?    @default("{\"theme\": \"light\", \"language\": \"pt-BR\", \"timezone\": \"America/Sao_Paulo\", \"dateFormat\": \"DD/MM/YYYY\", \"currency\": \"BRL\"}")
+
   // 🛡️ User Status & Trial
-  trialEndsAt           DateTime?     @default(dbgenerated("NOW() + interval '10 days'"))
-  subscriptionStatus    String        @default("TRIAL") // TRIAL, ACTIVE, EXPIRED, CANCELED
-  subscriptionPlan      String?       // MONTHLY, QUARTERLY, ANNUAL
+  trialEndsAt           DateTime? @default(dbgenerated("NOW() + interval '10 days'"))
+  subscriptionStatus    String    @default("TRIAL") // TRIAL, ACTIVE, EXPIRED, CANCELED
+  subscriptionPlan      String? // MONTHLY, QUARTERLY, ANNUAL
   subscriptionExpiresAt DateTime?
-  
+
   // 💰 Billing & Reminders
-  billingStatus         String        @default("ativo") // ativo, pendente, inativo
-  billingReminderConfig Json?         @default("{\"channel\": \"painel\", \"daysBefore\": 3, \"frequency\": 1, \"message\": \"Seu plano expira em breve. Evite interrupções realizando o pagamento.\"}")
+  billingStatus         String    @default("ativo") // ativo, pendente, inativo
+  billingReminderConfig Json?     @default("{\"channel\": \"painel\", \"daysBefore\": 3, \"frequency\": 1, \"message\": \"Seu plano expira em breve. Evite interrupções realizando o pagamento.\"}")
   lastBillingReminderAt DateTime?
-  
+
   // 🚀 Limits & Billing (Managed by Admin for Gestores)
-  maxWorkspaces         Int           @default(1)
-  maxTotalInstances     Int           @default(1) // Total instances this user (Gestor) can distribute
-  
+  maxWorkspaces     Int @default(1)
+  maxTotalInstances Int @default(1) // Total instances this user (Gestor) can distribute
+
   // 🔥 Workspaces
-  ownedWorkspaces Workspace[]  @relation("WorkspaceOwner")
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
 
   // 🔥 Legacy relations (Migrating to Workspace)
-  leads          Lead[]        @relation("UserLeads")
-  ownedTeams     Equipe[]      @relation("EquipeOwner")
-  teamMemberships EquipeUser[] // Pivot to Equipe
-  connections    Connection[]
-  whatsappConversations WhatsappConversation[]
-  maxMetaConnections     Int           @default(1)
-  maxWhatsappConnections Int           @default(1)
-  leadTrackingRules     LeadTrackingRule[]
-  systemLogs            SystemLog[]
-  assignedClients       Client[]      @relation("ClientAssignee")
-  notifications         Notification[]
-  licenseActivations    LicenseActivation[]
-  aiSettings            AiSetting?
-  aiChats               AiChatHistory[]
+  leads                  Lead[]                 @relation("UserLeads")
+  ownedTeams             Equipe[]               @relation("EquipeOwner")
+  teamMemberships        EquipeUser[] // Pivot to Equipe
+  connections            Connection[]
+  whatsappConversations  WhatsappConversation[]
+  maxMetaConnections     Int                    @default(1)
+  maxWhatsappConnections Int                    @default(1)
+  leadTrackingRules      LeadTrackingRule[]
+  systemLogs             SystemLog[]
+  assignedClients        Client[]               @relation("ClientAssignee")
+  notifications          Notification[]
+  licenseActivations     LicenseActivation[]
+  aiSettings             AiSetting?
+  aiChats                AiChatHistory[]
 }
 
 model Workspace {
-  id        Int      @id @default(autoincrement())
-  name      String
-  ownerId   Int
-  owner     User     @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  
+  id      Int    @id @default(autoincrement())
+  name    String
+  ownerId Int
+  owner   User   @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+
   // 🔥 Hierarchy
   parentWorkspaceId Int?
-  parentWorkspace   Workspace?    @relation("WorkspaceHierarchy", fields: [parentWorkspaceId], references: [id])
-  childWorkspaces   Workspace[]   @relation("WorkspaceHierarchy")
+  parentWorkspace   Workspace?  @relation("WorkspaceHierarchy", fields: [parentWorkspaceId], references: [id])
+  childWorkspaces   Workspace[] @relation("WorkspaceHierarchy")
 
-  members   WorkspaceMember[]
-  roles     Role[]
-  apiKeys   ApiKey[]
-  
+  members WorkspaceMember[]
+  roles   Role[]
+  apiKeys ApiKey[]
+
   // 🔥 Entidades do Workspace
-  leads     Lead[]
-  connections Connection[]
-  conversations WhatsappConversation[]
-  teams     Equipe[]
+  leads             Lead[]
+  connections       Connection[]
+  conversations     WhatsappConversation[]
+  teams             Equipe[]
   leadTrackingRules LeadTrackingRule[]
   systemLogs        SystemLog[]
   funnels           Funnel[]
   metaConnections   MetaConnection[]
+  metaBusinesses    MetaBusiness[]
   clients           Client[]
   notifications     Notification[]
-  automations       Automation[]    // 🔥 NOVO: Automations/Triggers
-  properties        Property[]      // 🔥 NOVO: Imóveis
-  
+  automations       Automation[] // 🔥 NOVO: Automations/Triggers
+  properties        Property[] // 🔥 NOVO: Imóveis
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // 🛡️ Workspace Subscription (Can be inherited from Owner)
-  status      String    @default("ACTIVE") // ACTIVE, BLOCKED
-  maxInstances Int       @default(1) // Instances allocated to THIS workspace
+  status       String @default("ACTIVE") // ACTIVE, BLOCKED
+  maxInstances Int    @default(1) // Instances allocated to THIS workspace
 }
 
 model WorkspaceMember {
-  id          Int       @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   workspaceId Int
   userId      Int
-  role        String    @default("MEMBER") // System fallback: ADMIN, MEMBER
-  
+  role        String @default("MEMBER") // System fallback: ADMIN, MEMBER
+
   // 🔥 Custom Role
-  roleId      Int?
-  customRole  Role?     @relation(fields: [roleId], references: [id])
+  roleId     Int?
+  customRole Role? @relation(fields: [roleId], references: [id])
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([workspaceId, userId])
 }
 
 // 🔥 AUTOMATIONS / TRIGGERS
 model Automation {
-  id              Int       @id @default(autoincrement())
-  name            String
-  
-  triggerEvent    String    // e.g. "LEAD_CREATED", "LEAD_UPDATED", "STAGE_CHANGED"
-  triggerConditions Json?   // Optional filters, e.g. {"status": "won", "funnelId": 1}
-  
-  actionType      String    // e.g. "N8N_WEBHOOK"
-  actionConfig    Json?     // e.g. {"url": "https://n8n.domain.com/webhook/...", "method": "POST"}
-  
-  isActive        Boolean   @default(true)
-  
-  workspaceId     Int
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id   Int    @id @default(autoincrement())
+  name String
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  triggerEvent      String // e.g. "LEAD_CREATED", "LEAD_UPDATED", "STAGE_CHANGED"
+  triggerConditions Json? // Optional filters, e.g. {"status": "won", "funnelId": 1}
+
+  actionType   String // e.g. "N8N_WEBHOOK"
+  actionConfig Json? // e.g. {"url": "https://n8n.domain.com/webhook/...", "method": "POST"}
+
+  isActive Boolean @default(true)
+
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([triggerEvent])
@@ -142,14 +142,14 @@ model Role {
   description String?
   permissions String[] @default([]) // e.g. ["leads:read", "funnel:manage"]
   isSystem    Boolean  @default(false)
-  
+
   workspaceId Int
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  
-  members     WorkspaceMember[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  members WorkspaceMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ApiKey {
@@ -183,76 +183,77 @@ model Lead {
   city         String?
   state        String?
   zipCode      String?
-  country      String?   @default("Brasil")
-  
+  country      String? @default("Brasil")
+
   // 📱 Social Media
-  instagram    String?
-  facebook     String?
-  linkedin     String?
-  twitter      String?
-  
+  instagram String?
+  facebook  String?
+  linkedin  String?
+  twitter   String?
+
   // 📝 Observations
-  observations  String?   @db.Text
-  internalNotes String?   @db.Text
-  
+  observations  String? @db.Text
+  internalNotes String? @db.Text
+
   // 💰 Financial Metrics
   estimatedValue    Decimal?  @db.Decimal(10, 2)
   actualValue       Decimal?  @db.Decimal(10, 2)
-  probability       Int?      // 0-100%
+  probability       Int? // 0-100%
   expectedCloseDate DateTime?
-  
+
   // 📅 Contact Tracking
   lastContactDate  DateTime?
   nextFollowUpDate DateTime?
 
   // 🔥 Relacionamento com User (Legacy)
-  ownerId   Int?
-  owner     User?    @relation("UserLeads", fields: [ownerId], references: [id])
-  
+  ownerId Int?
+  owner   User? @relation("UserLeads", fields: [ownerId], references: [id])
+
   // 🔥 Relacionamento com Workspace (New)
   workspaceId Int?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
-  
+
   // 🔥 Funnel Relation
-  funnelId    Int?
-  funnel      Funnel?    @relation(fields: [funnelId], references: [id], onDelete: SetNull)
-  stageId     Int?
-  stage       FunnelStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
-  
+  funnelId Int?
+  funnel   Funnel?      @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+  stageId  Int?
+  stage    FunnelStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+
   // 🔥 Conversas de Whatsapp
   whatsappConversations WhatsappConversation[]
 
   // 📅 Follow-up Config (New)
-  followUpAction      String?   // MOVE_FUNNEL, REMINDER, NOTIFY, etc
-  followUpConfig      Json?     // { stageId, message, notify }
-  followUpTriggered   Boolean   @default(false)
+  followUpAction    String? // MOVE_FUNNEL, REMINDER, NOTIFY, etc
+  followUpConfig    Json? // { stageId, message, notify }
+  followUpTriggered Boolean @default(false)
 
   // ⏰ Reminder Config (Optimized)
-  reminderDate        DateTime?
-  reminderTriggered   Boolean   @default(false)
+  reminderDate      DateTime?
+  reminderTriggered Boolean   @default(false)
 
   // 🔥 Meta Ads Mapping
-  metaLeadFormId      Int?
-  metaLeadForm        MetaLeadForm? @relation("FormLeads", fields: [metaLeadFormId], references: [id])
+  metaLeadFormId Int?
+  metaLeadForm   MetaLeadForm? @relation("FormLeads", fields: [metaLeadFormId], references: [id])
+
+  metadata Json? // 🔥 Raw data from external integrations (Meta Lead Ads, etc)
 }
 
-
 model Equipe {
-  id        Int         @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   ownerId   Int
   name      String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // 🔥 Legacy Relation
-  owner     User         @relation("EquipeOwner", fields: [ownerId], references: [id])
-  
+  owner User @relation("EquipeOwner", fields: [ownerId], references: [id])
+
   // 🔥 Workspace Relation
   workspaceId Int?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
 
-  members   EquipeUser[]
-  invites   Invitations[]
+  members EquipeUser[]
+  invites Invitations[]
 }
 
 model EquipeUser {
@@ -264,8 +265,8 @@ model EquipeUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  equipe    Equipe   @relation(fields: [equipeId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  equipe Equipe @relation(fields: [equipeId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
   @@unique([equipeId, userId])
 }
@@ -280,103 +281,100 @@ model Invitations {
   createdAt   DateTime @default(now())
   expiredAt   DateTime
 
-  equipe      Equipe   @relation(fields: [equipeId], references: [id])
+  equipe Equipe @relation(fields: [equipeId], references: [id])
 
   @@unique([equipeId, email])
 }
 
-
 model Connection {
-  id          Int      @id @default(autoincrement())
-  userId      Int      // Legacy owner
-  name        String   
-  provider    String   
-  
-  apiKey      String?  
-  apiSecret   String?  
-  webhookUrl  String?  
-  
-  autoSync    Boolean  @default(true)
-  config      Json?    
-  metrics     Json?    
-  
-  status      String   @default("connected") 
-  lastSync    DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id       Int    @id @default(autoincrement())
+  userId   Int // Legacy owner
+  name     String
+  provider String
 
-  user        User     @relation(fields: [userId], references: [id])
-  
+  apiKey     String?
+  apiSecret  String?
+  webhookUrl String?
+
+  autoSync Boolean @default(true)
+  config   Json?
+  metrics  Json?
+
+  status   String    @default("connected")
+  lastSync DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
   // 🔥 Workspace Relation
   workspaceId Int?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
-  
+
   whatsappConversations WhatsappConversation[]
 }
 
 model LeadTrackingRule {
-  id           Int      @id @default(autoincrement())
-  userId       Int      // Legacy
-  keywords     String   
-  targetStatus String?  // Optional if funnel/stage is used
-  isActive     Boolean  @default(true)
-  createLead   Boolean  @default(true) // 🔥 NEW: Auto-create lead option
-  user         User     @relation(fields: [userId], references: [id])
-  
+  id           Int     @id @default(autoincrement())
+  userId       Int // Legacy
+  keywords     String
+  targetStatus String? // Optional if funnel/stage is used
+  isActive     Boolean @default(true)
+  createLead   Boolean @default(true) // 🔥 NEW: Auto-create lead option
+  user         User    @relation(fields: [userId], references: [id])
+
   // 🔥 Workspace Relation
   workspaceId Int?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
-  
+
   // 🔥 Funnel Action
-  funnelId    Int?
-  funnel      Funnel?    @relation(fields: [funnelId], references: [id])
-  stageId     Int?
-  stage       FunnelStage? @relation(fields: [stageId], references: [id])
-  
+  funnelId Int?
+  funnel   Funnel?      @relation(fields: [funnelId], references: [id])
+  stageId  Int?
+  stage    FunnelStage? @relation(fields: [stageId], references: [id])
+
   // 🔥 Auto Reply Action
-  replyMessage String?
-  replyMediaUrl String?
+  replyMessage   String?
+  replyMediaUrl  String?
   replyMediaType String? // text, image, document
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-
-
 model WhatsappConversation {
-  id            Int               @id @default(autoincrement())
-  remoteJid     String            
+  id            Int     @id @default(autoincrement())
+  remoteJid     String
   name          String?
   profilePicUrl String?
-  status        String            @default("OPEN") 
-  unreadCount   Int               @default(0)
+  status        String  @default("OPEN")
+  unreadCount   Int     @default(0)
 
-  tags          String[]          @default([])
-  isTracked     Boolean           @default(false)
-  
-  userId        Int?              // Legacy
-  user          User?             @relation(fields: [userId], references: [id])
-  
+  tags      String[] @default([])
+  isTracked Boolean  @default(false)
+
+  userId Int? // Legacy
+  user   User? @relation(fields: [userId], references: [id])
+
   // 🔥 Workspace Relation
-  workspaceId   Int?
-  workspace     Workspace?        @relation(fields: [workspaceId], references: [id])
-  
-  connectionId  Int?
-  connection    Connection?       @relation(fields: [connectionId], references: [id])
-  
-  leadId        Int?
-  lead          Lead?             @relation(fields: [leadId], references: [id])
+  workspaceId Int?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
 
-  messages      WhatsappMessage[]
-  
-  lastMessage   String?
-  lastMessageAt DateTime? @default(now())
+  connectionId Int?
+  connection   Connection? @relation(fields: [connectionId], references: [id])
+
+  leadId Int?
+  lead   Lead? @relation(fields: [leadId], references: [id])
+
+  messages WhatsappMessage[]
+
+  lastMessage       String?
+  lastMessageAt     DateTime? @default(now())
   lastMessageFromMe Boolean?
-  
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([remoteJid, connectionId])
 }
@@ -385,280 +383,305 @@ model WhatsappMessage {
   id             Int                  @id @default(autoincrement())
   conversationId Int
   conversation   WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  
-  body           String
-  type           String               @default("text") 
-  mediaUrl       String?
-  mediaMimeType  String?
-  fromMe         Boolean              @default(false)
-  senderName     String?
-  
-  whatsappId     String?              @unique
-  createdAt      DateTime             @default(now())
+
+  body          String
+  type          String  @default("text")
+  mediaUrl      String?
+  mediaMimeType String?
+  fromMe        Boolean @default(false)
+  senderName    String?
+
+  whatsappId String?  @unique
+  createdAt  DateTime @default(now())
 }
 
 model SystemLog {
-  id          Int      @id @default(autoincrement())
-  level       String   @default("INFO") // INFO, WARN, ERROR
-  category    String   @default("SYSTEM") // WHATSAPP, LEAD, AUTH, SYSTEM
-  message     String
-  data        Json?
-  
-  userId      Int?
-  user        User?    @relation(fields: [userId], references: [id])
-  
+  id       Int    @id @default(autoincrement())
+  level    String @default("INFO") // INFO, WARN, ERROR
+  category String @default("SYSTEM") // WHATSAPP, LEAD, AUTH, SYSTEM
+  message  String
+  data     Json?
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
   workspaceId Int?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
-  
-  createdAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
 }
 
-
-
 model Funnel {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  workspaceId Int
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  stages      FunnelStage[]
-  leads       Lead[]
+  id            Int                @id @default(autoincrement())
+  name          String
+  description   String?
+  workspaceId   Int
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id])
+  stages        FunnelStage[]
+  leads         Lead[]
   trackingRules LeadTrackingRule[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   metaLeadForms MetaLeadForm[]
 }
 
 model FunnelStage {
-  id          Int       @id @default(autoincrement())
-  name        String
-  order       Int       @default(0)
-  color       String?
-  funnelId    Int
-  funnel      Funnel    @relation(fields: [funnelId], references: [id], onDelete: Cascade)
-  leads       Lead[]
+  id            Int                @id @default(autoincrement())
+  name          String
+  order         Int                @default(0)
+  color         String?
+  funnelId      Int
+  funnel        Funnel             @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  leads         Lead[]
   trackingRules LeadTrackingRule[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   metaLeadForms MetaLeadForm[]
 }
 
 // 🔥 META INTEGRATION MODELS
 model MetaConnection {
-  id              Int             @id @default(autoincrement())
-  fbUserId        String          @unique
-  name            String?
-  accessToken     String          // Long-lived User Access Token
-  expiresAt       DateTime?
-  status          String          @default("active") // active, expired, error
-  
-  workspaceId     Int
-  workspace       Workspace       @relation(fields: [workspaceId], references: [id])
-  
-  config          Json?           @default("{\"leadDistribution\": \"all\", \"ignoreDuplicates\": true, \"duplicateWindowHours\": 24, \"notifyWhatsApp\": true, \"notifyEmail\": false}")
-  
-  pages           MetaPage[]
-  
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id          Int       @id @default(autoincrement())
+  fbUserId    String    @unique
+  name        String?
+  accessToken String // Long-lived User Access Token
+  expiresAt   DateTime?
+  status      String    @default("active") // active, expired, error
+
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  config Json? @default("{\"leadDistribution\": \"all\", \"ignoreDuplicates\": true, \"duplicateWindowHours\": 24, \"notifyWhatsApp\": true, \"notifyEmail\": false}")
+
+  grantedScopes String[] @default([])
+
+  pages      MetaPage[]
+  businesses MetaBusiness[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MetaPage {
-  id              Int             @id @default(autoincrement())
-  pageId          String          @unique
-  name            String
-  accessToken     String          // Page Access Token
-  category        String?
-  pictureUrl      String?
-  isConnected     Boolean         @default(false) // If active for lead sync
-  
+  id          Int     @id @default(autoincrement())
+  pageId      String  @unique
+  name        String
+  accessToken String // Page Access Token
+  category    String?
+  pictureUrl  String?
+  isConnected Boolean @default(false) // If active for lead sync
+
   metaConnectionId Int
-  metaConnection   MetaConnection  @relation(fields: [metaConnectionId], references: [id], onDelete: Cascade)
-  
-  forms           MetaLeadForm[]
-  
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  metaConnection   MetaConnection @relation(fields: [metaConnectionId], references: [id], onDelete: Cascade)
+
+  businessId Int?
+  business   MetaBusiness? @relation(fields: [businessId], references: [id])
+
+  forms MetaLeadForm[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MetaBusiness {
+  id Int @id @default(autoincrement())
+
+  businessId String @unique
+  name       String
+
+  vertical           String?
+  verificationStatus String?
+
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  metaConnectionId Int
+  metaConnection   MetaConnection @relation(fields: [metaConnectionId], references: [id], onDelete: Cascade)
+
+  pages MetaPage[]
+
+  createdAt DateTime @default(now())
 }
 
 model MetaLeadForm {
-  id              Int             @id @default(autoincrement())
-  formId          String          @unique
-  name            String
-  status          String?         // ACTIVE, ARCHIVED, etc
-  
-  // Mapping to Funnel
-  funnelId        Int?
-  funnel          Funnel?         @relation(fields: [funnelId], references: [id])
-  stageId         Int?
-  stage           FunnelStage?    @relation(fields: [stageId], references: [id])
-  
-  pageId          Int
-  page            MetaPage        @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  
-  leads           Lead[]          @relation("FormLeads")
+  id     Int     @id @default(autoincrement())
+  formId String  @unique
+  name   String
+  status String? // ACTIVE, ARCHIVED, etc
 
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  // Mapping to Funnel
+  funnelId Int?
+  funnel   Funnel?      @relation(fields: [funnelId], references: [id])
+  stageId  Int?
+  stage    FunnelStage? @relation(fields: [stageId], references: [id])
+
+  pageId Int
+  page   MetaPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  leads Lead[] @relation("FormLeads")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 🔥 CLIENT MODEL (Manager+ Access)
 model Client {
-  id              Int       @id @default(autoincrement())
-  name            String
-  email           String?
-  phone           String?
-  company         String?
-  document        String?   // CPF/CNPJ
-  
+  id       Int     @id @default(autoincrement())
+  name     String
+  email    String?
+  phone    String?
+  company  String?
+  document String? // CPF/CNPJ
+
   // 🏠 Address
-  street          String?
-  number          String?
-  complement      String?
-  neighborhood    String?
-  city            String?
-  state           String?
-  zipCode         String?
-  country         String?   @default("Brasil")
-  
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  zipCode      String?
+  country      String? @default("Brasil")
+
   // 📱 Social
-  instagram       String?
-  facebook        String?
-  linkedin        String?
-  website         String?
-  
+  instagram String?
+  facebook  String?
+  linkedin  String?
+  website   String?
+
   // 💼 Business Info
-  segment         String?
-  totalRevenue    Decimal?  @db.Decimal(10, 2)
-  lifetimeValue   Decimal?  @db.Decimal(10, 2)
-  
+  segment       String?
+  totalRevenue  Decimal? @db.Decimal(10, 2)
+  lifetimeValue Decimal? @db.Decimal(10, 2)
+
   // 📊 Metadata
-  status          String    @default("ACTIVE") // ACTIVE, INACTIVE, CHURNED
-  acquisitionDate DateTime  @default(now())
-  observations    String?   @db.Text
-  
+  status          String   @default("ACTIVE") // ACTIVE, INACTIVE, CHURNED
+  acquisitionDate DateTime @default(now())
+  observations    String?  @db.Text
+
   // 🔥 Relations
-  workspaceId     Int
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  assignedToId    Int?
-  assignedTo      User?     @relation("ClientAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  workspaceId  Int
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignedToId Int?
+  assignedTo   User?     @relation("ClientAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([workspaceId])
   @@index([assignedToId])
 }
 
 model Notification {
-  id          Int      @id @default(autoincrement())
-  title       String
-  message     String
-  type        String   @default("INFO") // INFO, WARNING, ERROR
-  read        Boolean  @default(false)
-  
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-  
+  id      Int     @id @default(autoincrement())
+  title   String
+  message String
+  type    String  @default("INFO") // INFO, WARNING, ERROR
+  read    Boolean @default(false)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
   workspaceId Int?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([workspaceId])
 }
+
 model Property {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   title       String
   description String?
   price       Float?
   location    String?
   city        String?
   state       String?
-  type        String?  // Ex: Casa, Apartamento, Terreno
-  status      String   @default("available") // available, sold, rented
+  type        String? // Ex: Casa, Apartamento, Terreno
+  status      String    @default("available") // available, sold, rented
   bedrooms    Int?
   bathrooms   Int?
   area        Float?
   workspaceId Int
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Plan {
-  id           Int      @id @default(autoincrement())
-  name         String
-  description  String?
-  daysValid    Int      @default(30)
-  price        Decimal  @db.Decimal(10, 2)
-  role         String   @default("CLIENTE")
-  features     String[] @default([])
-  isActive     Boolean  @default(true)
-  
-  keys         LicenseKey[]
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  daysValid   Int      @default(30)
+  price       Decimal  @db.Decimal(10, 2)
+  role        String   @default("CLIENTE")
+  features    String[] @default([])
+  isActive    Boolean  @default(true)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  keys LicenseKey[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LicenseKey {
-  id              Int      @id @default(autoincrement())
-  key             String   @unique
-  daysValid       Int      @default(30)
-  usageLimit      Int      @default(1)
-  currentUsage    Int      @default(0)
-  priceGestor     Decimal  @db.Decimal(10, 2)
-  priceCliente    Decimal  @db.Decimal(10, 2)
-  isActive        Boolean  @default(true)
-  reminderEnabled Boolean  @default(true)
-  
-  planId          Int?
-  plan            Plan?    @relation(fields: [planId], references: [id])
-  
-  activations     LicenseActivation[]
+  id              Int     @id @default(autoincrement())
+  key             String  @unique
+  daysValid       Int     @default(30)
+  usageLimit      Int     @default(1)
+  currentUsage    Int     @default(0)
+  priceGestor     Decimal @db.Decimal(10, 2)
+  priceCliente    Decimal @db.Decimal(10, 2)
+  isActive        Boolean @default(true)
+  reminderEnabled Boolean @default(true)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  planId Int?
+  plan   Plan? @relation(fields: [planId], references: [id])
+
+  activations LicenseActivation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LicenseActivation {
-  id        Int      @id @default(autoincrement())
-  keyId     Int
-  userId    Int
-  usedAt    DateTime @default(now())
-  
-  key       LicenseKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     Int      @id @default(autoincrement())
+  keyId  Int
+  userId Int
+  usedAt DateTime @default(now())
+
+  key  LicenseKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([keyId, userId])
 }
 
 model AiSetting {
-  id          Int       @id @default(autoincrement())
-  userId      Int       @unique
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider    String?   @default("google")
-  apiKey      String?
-  modelName   String?   @default("gemini-1.5-pro")
-  isEnabled   Boolean   @default(false)
-  temperature Float     @default(0.7)
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String?  @default("google")
+  apiKey       String?
+  modelName    String?  @default("gemini-1.5-pro")
+  isEnabled    Boolean  @default(false)
+  temperature  Float    @default(0.7)
   systemPrompt String?  @default("Você é o Assistente Rastreia AI, um especialista em CRM e gestão de leads. Você tem acesso aos dados do usuário para ajudá-lo a analisar leads, conexões e métricas. Responda de forma profissional e útil.")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model AiChatHistory {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      String   
+  role      String
   content   String   @db.Text
   createdAt DateTime @default(now())
 }

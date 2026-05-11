@@ -126,9 +126,16 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       return;
     }
 
+    let name = "Lead Meta";
+    let email = null;
+    let phone = null;
+    const metaFields = {};
+
     for (const field of rawLead.field_data) {
       const fieldName = field.name.toLowerCase();
       const value = field.values[0];
+      
+      metaFields[field.name] = value; // Store original field names and values
 
       if (fieldName === "full_name" || fieldName === "name") name = value;
       if (fieldName === "email") email = value;
@@ -206,13 +213,20 @@ async function processNewLead(leadId, fbPageId, fbFormId) {
       data: {
         name,
         email,
-        phone: phone ? phone.replace(/\D/g, "") : null,
+        phone: cleanPhone,
         source: `Meta Ads: ${page.name} (ID: ${leadId})`,
         workspaceId: page.metaConnection.workspaceId,
         metaLeadFormId: form.id,
         funnelId,
         stageId,
         status: funnelId ? undefined : "new",
+        metadata: {
+          fbLeadId: leadId,
+          fbFormId,
+          fbPageId,
+          fields: metaFields,
+          raw: rawLead
+        }
       },
     });
 

@@ -1,7 +1,21 @@
 import crypto from "crypto";
 import { request, ExternalApiError } from "../utils/api-client.js";
 
-const FB_GRAPH_URL = "https://graph.facebook.com/v18.0";
+const FB_GRAPH_URL = "https://graph.facebook.com/v23.0";
+
+// Simple in-memory cache to mitigate Meta API rate limits
+const cache = new Map();
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+const getCachedOrFetch = async (key, fetcher) => {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  const data = await fetcher();
+  cache.set(key, { data, timestamp: Date.now() });
+  return data;
+};
 
 /**
  * Exchanges a short-lived user access token for a long-lived one (60 days).
@@ -231,16 +245,16 @@ export const getMetaReport = async (userAccessToken, dateRange = "last_30d") => 
     const accounts = await getAdAccounts(userAccessToken);
     report.adAccounts = accounts;
 
-    // 2. For each account, get campaigns + insights in parallel
+    // 2. For each account, get campaigns with insights in a single call (Bulk Optimization)
     const campaignPromises = accounts.map(async (acc) => {
       try {
-        const [campaigns, accountInsights] = await Promise.allSettled([
-          getCampaigns(acc.id, userAccessToken),
+        const [campaignsRes, accountInsightsRes] = await Promise.allSettled([
+          request(`${FB_GRAPH_URL}/${acc.id}/campaigns?access_token=${userAccessToken}&fields=id,name,status,insights.date_preset(${dateRange}){spend,impressions,clicks,actions}`),
           getInsights(acc.id, userAccessToken, dateRange),
         ]);
 
-        const accCampaigns = campaigns.status === "fulfilled" ? campaigns.value : [];
-        const accInsights = accountInsights.status === "fulfilled" ? accountInsights.value : null;
+        const campaignsData = campaignsRes.status === "fulfilled" ? campaignsRes.value.data || [] : [];
+        const accInsights = accountInsightsRes.status === "fulfilled" ? accountInsightsRes.value : null;
 
         // Accumulate totals
         if (accInsights) {
@@ -251,20 +265,15 @@ export const getMetaReport = async (userAccessToken, dateRange = "last_30d") => 
           report.totalLeads += parseInt(leadAction?.value || 0);
         }
 
-        // Get insights per campaign
-        const enrichedCampaigns = await Promise.all(
-          accCampaigns.map(async (camp) => {
-            try {
-              const insights = await getInsights(camp.id, userAccessToken, dateRange);
-              return { ...camp, insights, adAccountName: acc.name, adAccountId: acc.id };
-            } catch {
-              return { ...camp, insights: null, adAccountName: acc.name, adAccountId: acc.id };
-            }
-          })
-        );
-
-        return enrichedCampaigns;
-      } catch {
+        // Map campaigns with their nested insights
+        return campaignsData.map(camp => ({
+          ...camp,
+          insights: camp.insights?.data?.[0] || null,
+          adAccountName: acc.name,
+          adAccountId: acc.id
+        }));
+      } catch (err) {
+        console.warn(`Error fetching data for account ${acc.id}:`, err.message);
         return [];
       }
     });
@@ -276,4 +285,121 @@ export const getMetaReport = async (userAccessToken, dateRange = "last_30d") => 
   }
 
   return report;
+};
+
+/**
+ * Lists the Business Accounts (Portfolios) the user has access to.
+ */
+export const getBusinesses = async (userAccessToken) => {
+  return getCachedOrFetch(`businesses_${userAccessToken}`, async () => {
+    try {
+      const data = await request(
+        `${FB_GRAPH_URL}/me/businesses?access_token=${userAccessToken}&fields=id,name,vertical,verification_status,primary_page,created_time&limit=100`,
+      );
+      return data.data || [];
+    } catch (error) {
+      console.error("Meta getBusinesses error:", error.message);
+      throw error;
+    }
+  });
+};
+
+/**
+ * Lists pages for a specific Business.
+ */
+export const getBusinessPages = async (businessId, userAccessToken) => {
+  try {
+    const endpoints = [
+      `${FB_GRAPH_URL}/${businessId}/owned_pages`,
+      `${FB_GRAPH_URL}/${businessId}/client_pages`
+    ];
+
+    let pages = [];
+
+    for (const endpoint of endpoints) {
+      try {
+        const data = await request(
+          `${endpoint}?fields=id,name,category,picture{url}&access_token=${userAccessToken}&limit=100`
+        );
+        if (data.data) {
+          pages.push(...data.data);
+        }
+      } catch (e) {
+        console.warn(`Could not fetch pages from ${endpoint}:`, e.message);
+      }
+    }
+
+    // Deduplicate pages by ID
+    const map = new Map();
+    pages.forEach(p => map.set(p.id, p));
+    return Array.from(map.values());
+  } catch (error) {
+    console.error(`Meta getBusinessPages error for ${businessId}:`, error.message);
+    throw error;
+  }
+};
+
+/**
+ * Gets specific Page Access Token using User Access Token.
+ */
+export const getPageAccessToken = async (pageId, userAccessToken) => {
+  try {
+    const data = await request(
+      `${FB_GRAPH_URL}/${pageId}?fields=access_token&access_token=${userAccessToken}`
+    );
+    return data.access_token;
+  } catch (error) {
+    console.error(`Meta getPageAccessToken error for ${pageId}:`, error.message);
+    throw error;
+  }
+};
+
+/**
+ * Lists assets (Ad Accounts, Pages, Instagram Accounts) for a specific Business.
+ */
+export const getBusinessAssets = async (businessId, userAccessToken) => {
+  return getCachedOrFetch(`assets_${businessId}`, async () => {
+    try {
+      // We fetch both owned and client assets for a full picture
+      const [ownedAdAccounts, clientAdAccounts, instagramAccounts] = await Promise.allSettled([
+        request(`${FB_GRAPH_URL}/${businessId}/adaccounts?access_token=${userAccessToken}&fields=id,name,account_id,account_status,amount_spent,currency`),
+        request(`${FB_GRAPH_URL}/${businessId}/client_ad_accounts?access_token=${userAccessToken}&fields=id,name,account_id,account_status,amount_spent,currency`),
+        request(`${FB_GRAPH_URL}/${businessId}/instagram_accounts?access_token=${userAccessToken}&fields=id,username,follow_count`)
+      ]);
+
+      const pages = await getBusinessPages(businessId, userAccessToken);
+
+      const merge = (r1, r2) => {
+        const data1 = r1.status === "fulfilled" ? r1.value.data : [];
+        const data2 = r2.status === "fulfilled" ? r2.value.data : [];
+        const map = new Map();
+        [...data1, ...data2].forEach(item => map.set(item.id, item));
+        return Array.from(map.values());
+      };
+
+      return {
+        adAccounts: merge(ownedAdAccounts, clientAdAccounts),
+        pages: pages,
+        instagramAccounts: instagramAccounts.status === "fulfilled" ? instagramAccounts.value.data : []
+      };
+    } catch (error) {
+      console.error(`Meta getBusinessAssets error for ${businessId}:`, error.message);
+      throw error;
+    }
+  });
+};
+
+/**
+ * Fetches leads from a specific Meta Lead Form.
+ */
+export const getFormLeads = async (formId, accessToken, limit = 50) => {
+  try {
+    const data = await request(
+      `${FB_GRAPH_URL}/${formId}/leads?access_token=${accessToken}&fields=id,created_time,field_data&limit=${limit}`
+    );
+    return data.data || [];
+  } catch (error) {
+    console.error(`Meta getFormLeads error for ${formId}:`, error.message);
+    throw error;
+  }
 };

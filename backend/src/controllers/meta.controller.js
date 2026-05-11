@@ -10,6 +10,8 @@ const REQUIRED_SCOPES = [
   "pages_read_engagement",
   "leads_retrieval",
   "business_management",
+  "instagram_basic",
+  "instagram_manage_insights",
 ].join(",");
 
 /**
@@ -165,22 +167,61 @@ export const oauthCallback = async (req, res) => {
       create: { fbUserId, accessToken: longLivedToken, name: fbName, expiresAt, workspaceId },
     });
 
-    // 5. Sync pages
+    // 5. Sync Businesses and Pages (New Architecture)
     try {
-      const pagesData = await metaService.getUserPages(longLivedToken);
-      for (const p of pagesData) {
-        await prisma.metaPage.upsert({
-          where: { pageId: p.id },
-          update: { name: p.name, accessToken: p.access_token, category: p.category, pictureUrl: p.picture?.data?.url },
-          create: {
-            pageId: p.id, name: p.name, accessToken: p.access_token,
-            category: p.category, pictureUrl: p.picture?.data?.url,
-            metaConnectionId: connection.id,
+      const businesses = await metaService.getBusinesses(longLivedToken);
+      
+      for (const b of businesses) {
+        const savedBusiness = await prisma.metaBusiness.upsert({
+          where: { businessId: b.id },
+          update: {
+            name: b.name,
+            verificationStatus: b.verification_status,
+            vertical: b.vertical
           },
+          create: {
+            businessId: b.id,
+            name: b.name,
+            verificationStatus: b.verification_status,
+            vertical: b.vertical,
+            workspaceId,
+            metaConnectionId: connection.id
+          }
         });
+
+        const pages = await metaService.getBusinessPages(b.id, longLivedToken);
+
+        for (const p of pages) {
+          let pageToken = null;
+          try {
+            pageToken = await metaService.getPageAccessToken(p.id, longLivedToken);
+          } catch (e) {
+            console.warn(`Could not get token for page ${p.id}:`, e.message);
+          }
+
+          await prisma.metaPage.upsert({
+            where: { pageId: p.id },
+            update: {
+              name: p.name,
+              accessToken: pageToken || p.access_token,
+              category: p.category,
+              pictureUrl: p.picture?.data?.url,
+              businessId: savedBusiness.id
+            },
+            create: {
+              pageId: p.id,
+              name: p.name,
+              accessToken: pageToken || p.access_token,
+              category: p.category,
+              pictureUrl: p.picture?.data?.url,
+              metaConnectionId: connection.id,
+              businessId: savedBusiness.id
+            },
+          });
+        }
       }
     } catch (e) {
-      console.warn("Could not sync pages after OAuth:", e.message);
+      console.warn("Could not sync businesses/pages after OAuth:", e.message);
     }
 
     // 6. Redirect back to frontend with success
@@ -399,6 +440,104 @@ export const listAdAccounts = async (req, res) => {
 };
 
 /**
+ * Lists Business Accounts (Portfolios) for the connected Meta account.
+ */
+export const listBusinesses = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const { refresh } = req.query;
+
+    if (refresh === "true") {
+      const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
+      if (connection) {
+        const businesses = await metaService.getBusinesses(connection.accessToken);
+        for (const b of businesses) {
+          await prisma.metaBusiness.upsert({
+            where: { businessId: b.id },
+            update: { name: b.name, vertical: b.vertical, verificationStatus: b.verification_status },
+            create: { 
+              businessId: b.id, name: b.name, vertical: b.vertical, 
+              verificationStatus: b.verification_status, workspaceId,
+              metaConnectionId: connection.id 
+            }
+          });
+        }
+      }
+    }
+
+    const businesses = await prisma.metaBusiness.findMany({
+      where: { workspaceId },
+      include: { _count: { select: { pages: true } } }
+    });
+    
+    res.json(businesses);
+  } catch (error) {
+    console.error("listBusinesses error:", error);
+    res.status(500).json({ error: "Erro ao listar portfólios (Business Accounts)" });
+  }
+};
+
+/**
+ * Gets detailed assets for a specific business.
+ */
+export const getBusinessAssets = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const { businessId } = req.params;
+    const connection = await prisma.metaConnection.findFirst({
+      where: { workspaceId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
+    }
+
+    const assets = await metaService.getBusinessAssets(businessId, connection.accessToken);
+    
+    // Find the internal business ID
+    const business = await prisma.metaBusiness.findUnique({
+      where: { businessId }
+    });
+
+    if (business && assets.pages) {
+      for (const p of assets.pages) {
+        let pageToken = null;
+        try {
+          pageToken = await metaService.getPageAccessToken(p.id, connection.accessToken);
+        } catch (e) {
+          console.warn(`Could not get token for page ${p.id} during asset sync:`, e.message);
+        }
+
+        await prisma.metaPage.upsert({
+          where: { pageId: p.id },
+          update: { 
+            name: p.name, 
+            category: p.category, 
+            pictureUrl: p.picture?.data?.url,
+            accessToken: pageToken || undefined,
+            businessId: business.id
+          },
+          create: {
+            pageId: p.id,
+            name: p.name,
+            category: p.category,
+            pictureUrl: p.picture?.data?.url,
+            accessToken: pageToken || "",
+            metaConnectionId: connection.id,
+            businessId: business.id
+          }
+        });
+      }
+    }
+
+    res.json(assets);
+  } catch (error) {
+    console.error("getBusinessAssets error:", error);
+    res.status(500).json({ error: "Erro ao buscar ativos do portfólio" });
+  }
+};
+
+/**
  * Lists campaigns for a specific Ad Account.
  */
 export const listCampaigns = async (req, res) => {
@@ -506,52 +645,141 @@ export const syncMeta = async (req, res) => {
     const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
     if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
 
-    // Re-sync pages
-    const pagesData = await metaService.getUserPages(connection.accessToken);
+    // 1. Sync Businesses
+    const businessesData = await metaService.getBusinesses(connection.accessToken);
+    let syncedBusinesses = 0;
     let syncedPages = 0;
     let syncedForms = 0;
 
-    for (const p of pagesData) {
-      const page = await prisma.metaPage.upsert({
-        where: { pageId: p.id },
+    for (const b of businessesData) {
+      const savedBusiness = await prisma.metaBusiness.upsert({
+        where: { businessId: b.id },
         update: {
-          name: p.name,
-          accessToken: p.access_token,
-          category: p.category,
-          pictureUrl: p.picture?.data?.url,
+          name: b.name,
+          verificationStatus: b.verification_status,
+          vertical: b.vertical
         },
         create: {
-          pageId: p.id,
-          name: p.name,
-          accessToken: p.access_token,
-          category: p.category,
-          pictureUrl: p.picture?.data?.url,
-          metaConnectionId: connection.id,
-        },
+          businessId: b.id,
+          name: b.name,
+          verificationStatus: b.verification_status,
+          vertical: b.vertical,
+          workspaceId,
+          metaConnectionId: connection.id
+        }
       });
-      syncedPages++;
+      syncedBusinesses++;
 
-      // Sync forms for connected pages
-      if (page.isConnected) {
+      // 2. Sync Pages for each Business
+      const pagesData = await metaService.getBusinessPages(b.id, connection.accessToken);
+      
+      for (const p of pagesData) {
+        let pageToken = null;
         try {
-          const forms = await metaService.getPageForms(p.id, p.access_token);
-          for (const f of forms) {
-            await prisma.metaLeadForm.upsert({
-              where: { formId: f.id },
-              update: { name: f.name, status: f.status },
-              create: { formId: f.id, name: f.name, status: f.status, pageId: page.id },
-            });
-            syncedForms++;
-          }
+          pageToken = await metaService.getPageAccessToken(p.id, connection.accessToken);
         } catch (e) {
-          console.warn(`Could not sync forms for page ${p.id}:`, e.message);
+          console.warn(`Could not get token for page ${p.id}:`, e.message);
+        }
+
+        const page = await prisma.metaPage.upsert({
+          where: { pageId: p.id },
+          update: {
+            name: p.name,
+            accessToken: pageToken || p.access_token,
+            category: p.category,
+            pictureUrl: p.picture?.data?.url,
+            businessId: savedBusiness.id
+          },
+          create: {
+            pageId: p.id,
+            name: p.name,
+            accessToken: pageToken || p.access_token,
+            category: p.category,
+            pictureUrl: p.picture?.data?.url,
+            metaConnectionId: connection.id,
+            businessId: savedBusiness.id
+          },
+        });
+        syncedPages++;
+
+        // 3. Sync forms for connected pages
+        if (page.isConnected) {
+          try {
+            const forms = await metaService.getPageForms(page.pageId, page.accessToken);
+            for (const f of forms) {
+              await prisma.metaLeadForm.upsert({
+                where: { formId: f.id },
+                update: { name: f.name, status: f.status },
+                create: { formId: f.id, name: f.name, status: f.status, pageId: page.id },
+              });
+              syncedForms++;
+            }
+          } catch (e) {
+            console.warn(`Could not sync forms for page ${p.id}:`, e.message);
+          }
         }
       }
     }
 
-    res.json({ message: "Sincronização concluída", syncedPages, syncedForms });
+    res.json({ message: "Sincronização concluída", syncedBusinesses, syncedPages, syncedForms });
   } catch (error) {
     console.error("syncMeta error:", error);
     res.status(500).json({ error: "Erro ao sincronizar dados da Meta" });
+  }
+};
+
+/**
+ * Pulls leads from a specific form and saves them to the database.
+ */
+export const syncFormLeads = async (req, res) => {
+  try {
+    const { workspaceId } = req;
+    const { formId } = req.params;
+    
+    const connection = await prisma.metaConnection.findFirst({ where: { workspaceId } });
+    if (!connection) return res.status(404).json({ error: "Nenhuma conta Meta conectada" });
+
+    const form = await prisma.metaLeadForm.findUnique({
+      where: { formId },
+      include: { page: true }
+    });
+
+    if (!form) return res.status(404).json({ error: "Formulário não encontrado no banco de dados" });
+
+    const leads = await metaService.getFormLeads(formId, form.page.accessToken);
+    let createdCount = 0;
+
+    for (const metaLead of leads) {
+      const existing = await prisma.lead.findFirst({
+        where: { metadata: { path: ["id"], equals: metaLead.id } }
+      });
+
+      if (!existing) {
+        // Simple mapping from Meta fields to Lead model
+        const nameField = metaLead.field_data.find(f => f.name === "full_name")?.values[0];
+        const emailField = metaLead.field_data.find(f => f.name === "email")?.values[0];
+        const phoneField = metaLead.field_data.find(f => f.name === "phone_number")?.values[0];
+
+        await prisma.lead.create({
+          data: {
+            name: nameField || "Lead Meta",
+            email: emailField,
+            phone: phoneField,
+            source: "meta_manual_sync",
+            workspaceId,
+            funnelId: form.funnelId,
+            stageId: form.stageId,
+            metaLeadFormId: form.id,
+            metadata: metaLead
+          }
+        });
+        createdCount++;
+      }
+    }
+
+    res.json({ message: `Sincronização de leads concluída`, createdCount, totalFound: leads.length });
+  } catch (error) {
+    console.error("syncFormLeads error:", error);
+    res.status(500).json({ error: "Erro ao sincronizar leads do formulário" });
   }
 };

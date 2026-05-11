@@ -136,30 +136,51 @@ export const chat = async (req, res) => {
       - Páginas conectadas: ${metaConnection.pages.length}
 ${pagesInfo}`;
 
-        // 🔥 Dynamic Context: Fetch live report summary ONLY if user asks about Ads/Finance
-        const adKeywords = ["anúncio", "campanha", "gasto", "meta", "facebook", "ads", "performance", "ctr", "investimento", "dinheiro", "valor"];
+        // 🔥 Dynamic Context: Fetch live report summary ONLY if user asks about Ads/Finance/Businesses
+        const adKeywords = ["anúncio", "campanha", "gasto", "meta", "facebook", "ads", "performance", "ctr", "investimento", "dinheiro", "valor", "portfólio", "business", "empresa", "conta", "gerenciador"];
         if (adKeywords.some(k => message.toLowerCase().includes(k)) || message.length > 50) {
           try {
-            const liveReport = await metaService.getMetaReport(metaConnection.accessToken, "this_month");
+            const [liveReport, businesses] = await Promise.all([
+              metaService.getMetaReport(metaConnection.accessToken, "this_month"),
+              metaService.getBusinesses(metaConnection.accessToken)
+            ]);
+
+            // Enrich businesses with assets for AI
+            const businessesWithAssets = await Promise.all(businesses.map(async (b) => {
+              try {
+                const assets = await metaService.getBusinessAssets(b.id, metaConnection.accessToken);
+                return { ...b, assets };
+              } catch {
+                return { ...b, assets: null };
+              }
+            }));
+
             const activeCampaigns = liveReport.campaigns.filter(c => c.status === "ACTIVE");
             
             metaContext += `
-      LIVE REPORT (Métricas de Anúncios deste mês):
-      - Gasto Total (Spend): R$ ${liveReport.totalSpend.toFixed(2)}
-      - Leads Reportados pela Meta (On-Facebook): ${liveReport.totalLeads}
+      LIVE PERFORMANCE (Este mês):
+      - Gasto Total: R$ ${liveReport.totalSpend.toFixed(2)}
+      - Leads Reportados (On-Facebook): ${liveReport.totalLeads}
       - CPM Médio: R$ ${(liveReport.totalImpressions > 0 ? (liveReport.totalSpend / liveReport.totalImpressions) * 1000 : 0).toFixed(2)}
       - CTR Médio: ${(liveReport.totalImpressions > 0 ? (liveReport.totalClicks / liveReport.totalImpressions) * 100 : 0).toFixed(2)}%
-      - Campanhas Ativas (${activeCampaigns.length}):
-        ${activeCampaigns.slice(0, 5).map(c => `  * ${c.name}: R$ ${parseFloat(c.insights?.spend || 0).toFixed(2)} gasto, ${c.insights?.clicks || 0} cliques`).join("\n")}
       
-      CONTAS DE ANÚNCIOS:
-      ${liveReport.adAccounts.map(acc => `  - ${acc.name}: R$ ${parseFloat(acc.amount_spent || 0).toFixed(2)} total gasto histórico, Status: ${acc.account_status === 1 ? 'Ativa' : 'Problema'}`).join("\n")}
+      PORTFÓLIOS / BUSINESS ACCOUNTS (${businessesWithAssets.length}):
+      ${businessesWithAssets.map(b => {
+        const adAccs = b.assets?.adAccounts?.map(a => `${a.name} (${a.currency} ${parseFloat(a.amount_spent || 0)/100})`).join(", ");
+        const pages = b.assets?.pages?.map(p => p.name).join(", ");
+        return `  - ${b.name} (ID: ${b.id}):
+            * Contas de Anúncios: ${adAccs || "Nenhuma"}
+            * Páginas: ${pages || "Nenhuma"}`;
+      }).join("\n")}
+
+      CAMPANHAS EM VEICULAÇÃO (${activeCampaigns.length}):
+      ${activeCampaigns.slice(0, 10).map(c => `  * ${c.name}: R$ ${parseFloat(c.insights?.spend || 0).toFixed(2)} gasto, ${c.insights?.clicks || 0} cliques, ${c.insights?.actions?.find(a => a.action_type === "lead")?.value || 0} leads`).join("\n")}
       `;
           } catch (liveError) {
             console.warn("Could not fetch live report for AI context:", liveError.message);
           }
         } else {
-          metaContext += `\n      - Para dados financeiros detalhados e gráficos, o usuário pode acessar /relatorios/meta`;
+          metaContext += `\n      - Para dados financeiros detalhados e portfólios, o usuário pode acessar /relatorios/meta ou /conexoes/meta`;
         }
       }
 

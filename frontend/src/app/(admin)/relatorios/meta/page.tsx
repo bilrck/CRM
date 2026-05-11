@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Facebook, RefreshCw, TrendingUp, DollarSign, MousePointerClick, Eye, Users, FileText, AlertTriangle } from "lucide-react";
+import { Facebook, RefreshCw, TrendingUp, DollarSign, MousePointerClick, Eye, Users, FileText, AlertTriangle, Briefcase, Instagram, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -51,6 +51,9 @@ export default function MetaReportPage() {
   const [report, setReport] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [metaConfig, setMetaConfig] = useState<any>(null);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [businessAssets, setBusinessAssets] = useState<Record<string, any>>({});
+  const [loadingAssets, setLoadingAssets] = useState<Record<string, boolean>>({});
   
   // Filters
   const [filterAdAccount, setFilterAdAccount] = useState("all");
@@ -59,9 +62,10 @@ export default function MetaReportPage() {
     setLoading(true);
     setError(null);
     try {
-      const [reportRes, settingsRes] = await Promise.all([
+      const [reportRes, settingsRes, businessesRes] = await Promise.all([
         fetch(`${API}/meta/report?range=${selectedRange}`, { credentials: "include" }),
-        fetch(`${API}/meta/settings`, { credentials: "include" })
+        fetch(`${API}/meta/settings`, { credentials: "include" }),
+        fetch(`${API}/meta/businesses`, { credentials: "include" })
       ]);
 
       if (reportRes.status === 404) {
@@ -71,11 +75,36 @@ export default function MetaReportPage() {
       
       if (reportRes.ok) setReport(await reportRes.json());
       if (settingsRes.ok) setMetaConfig(await settingsRes.json());
+      if (businessesRes.ok) {
+        const bizData = await businessesRes.json();
+        setBusinesses(bizData);
+        // Start fetching assets for each business sequentially to avoid rate limits
+        fetchAssetsSequentially(bizData);
+      }
       
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAssetsSequentially = async (bizList: any[]) => {
+    for (const biz of bizList) {
+      try {
+        setLoadingAssets(prev => ({ ...prev, [biz.id]: true }));
+        const res = await fetch(`${API}/meta/businesses/${biz.id}/assets`, { credentials: "include" });
+        if (res.ok) {
+          const assets = await res.json();
+          setBusinessAssets(prev => ({ ...prev, [biz.id]: assets }));
+        }
+      } catch (err) {
+        console.error(`Error fetching assets for ${biz.id}:`, err);
+      } finally {
+        setLoadingAssets(prev => ({ ...prev, [biz.id]: false }));
+      }
+      // Small delay between requests to be safe
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   };
 
@@ -367,6 +396,100 @@ export default function MetaReportPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Portfolios & Business Assets */}
+      {businesses.length > 0 && (
+        <Card className="border-2">
+          <CardHeader className="border-b bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2"><Briefcase size={18} className="text-blue-600" /> Portfólios de Negócios (BM)</CardTitle>
+                <CardDescription>Estrutura de gerenciadores e ativos vinculados</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {businesses.map((biz: any) => (
+                <div key={biz.id} className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-600 p-2 rounded-lg shadow-md">
+                        <Briefcase className="text-white h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-900">{biz.name}</h3>
+                        <p className="text-xs text-gray-400 font-mono">ID: {biz.id} · {biz.vertical || "Geral"}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold">Contas</p>
+                        <p className="text-sm font-black">
+                          {loadingAssets[biz.id] ? "..." : (businessAssets[biz.id]?.adAccounts?.length || 0)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold">Páginas</p>
+                        <p className="text-sm font-black">
+                          {loadingAssets[biz.id] ? "..." : (businessAssets[biz.id]?.pages?.length || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Ad Accounts in this BM */}
+                    {businessAssets[biz.id]?.adAccounts?.length > 0 && (
+                      <div className="bg-gray-50/50 rounded-xl p-4 border border-dashed border-gray-200">
+                        <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+                          <DollarSign size={12} /> Contas de Anúncios
+                        </p>
+                        <div className="space-y-2">
+                          {businessAssets[biz.id].adAccounts.map((acc: any) => (
+                            <div key={acc.id} className="bg-white p-2 rounded-lg border text-xs flex justify-between items-center shadow-sm">
+                              <span className="font-semibold text-gray-700 truncate mr-2">{acc.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-blue-600">{acc.currency} {parseFloat(acc.amount_spent || 0)/100}</span>
+                                <div className={`w-2 h-2 rounded-full ${acc.account_status === 1 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Instagram in this BM */}
+                    {businessAssets[biz.id]?.instagramAccounts?.length > 0 && (
+                      <div className="bg-gray-50/50 rounded-xl p-4 border border-dashed border-gray-200">
+                        <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+                          <Instagram size={12} /> Instagram
+                        </p>
+                        <div className="space-y-2">
+                          {businessAssets[biz.id].instagramAccounts.map((ig: any) => (
+                            <div key={ig.id} className="bg-white p-2 rounded-lg border text-xs flex justify-between items-center shadow-sm">
+                              <div className="flex items-center gap-2">
+                                <Instagram size={12} className="text-purple-600" />
+                                <span className="font-bold text-gray-800">@{ig.username}</span>
+                              </div>
+                              <span className="text-purple-600 font-bold">{ig.follow_count || 0} seg.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {loadingAssets[biz.id] && (
+                      <div className="col-span-2 py-4 text-center text-xs text-gray-400 animate-pulse">
+                        Carregando ativos do portfólio...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

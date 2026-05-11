@@ -16,7 +16,10 @@ import {
     ChevronRight,
     TrendingUp,
     DollarSign,
-    Target
+    Target,
+    Briefcase,
+    Instagram,
+    ChevronDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -48,6 +51,10 @@ export default function MetaIntegrationPage() {
     const [mappingConfig, setMappingConfig] = useState({ funnelId: "", stageId: "" });
     const [connectingOAuth, setConnectingOAuth] = useState(false);
     const [adAccounts, setAdAccounts] = useState<any[]>([]);
+    const [businesses, setBusinesses] = useState<any[]>([]);
+    const [expandedBusinessId, setExpandedBusinessId] = useState<string | null>(null);
+    const [businessAssets, setBusinessAssets] = useState<Record<string, any>>({});
+    const [loadingBusinessAssets, setLoadingBusinessAssets] = useState<Record<string, boolean>>({});
     const [syncing, setSyncing] = useState(false);
     const [metaStatus, setMetaStatus] = useState<string>("disconnected");
     const [metaConfig, setMetaConfig] = useState<any>({
@@ -73,11 +80,12 @@ export default function MetaIntegrationPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [pagesRes, funnelsRes, adAccountsRes, settingsRes] = await Promise.all([
+                const [pagesRes, funnelsRes, adAccountsRes, settingsRes, businessesRes] = await Promise.all([
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/pages`, { credentials: "include" }),
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/funnel`, { credentials: "include" }),
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/ad-accounts`, { credentials: "include" }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/settings`, { credentials: "include" })
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/settings`, { credentials: "include" }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/businesses`, { credentials: "include" })
                 ]);
 
                 if (pagesRes.ok) {
@@ -88,6 +96,7 @@ export default function MetaIntegrationPage() {
                 if (funnelsRes.ok) setFunnels(await funnelsRes.json());
                 if (adAccountsRes.ok) setAdAccounts(await adAccountsRes.json());
                 if (settingsRes.ok) setMetaConfig(await settingsRes.json());
+                if (businessesRes.ok) setBusinesses(await businessesRes.json());
             } catch (error) {
                 console.error("Erro loading meta space:", error);
             } finally {
@@ -121,6 +130,30 @@ export default function MetaIntegrationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const toggleBusinessExpansion = async (bizId: string) => {
+        if (expandedBusinessId === bizId) {
+            setExpandedBusinessId(null);
+            return;
+        }
+        setExpandedBusinessId(bizId);
+        
+        // Fetch assets if not already loaded
+        if (!businessAssets[bizId]) {
+            setLoadingBusinessAssets(prev => ({ ...prev, [bizId]: true }));
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/businesses/${bizId}/assets`, { credentials: "include" });
+                if (res.ok) {
+                    const data = await res.json();
+                    setBusinessAssets(prev => ({ ...prev, [bizId]: data }));
+                }
+            } catch (error) {
+                toast.error("Erro ao carregar ativos do portfólio");
+            } finally {
+                setLoadingBusinessAssets(prev => ({ ...prev, [bizId]: false }));
+            }
+        }
+    };
+
     const handleConnect = async () => {
         setConnectingOAuth(true);
         try {
@@ -142,12 +175,14 @@ export default function MetaIntegrationPage() {
             if (res.ok) {
                 toast.success("Dados sincronizados com sucesso!");
                 // Refresh data
-                const [pagesRes, adAccountsRes] = await Promise.all([
+                const [pagesRes, adAccountsRes, businessesRes] = await Promise.all([
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/pages`, { credentials: "include" }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/ad-accounts`, { credentials: "include" })
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/ad-accounts`, { credentials: "include" }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/meta/businesses`, { credentials: "include" })
                 ]);
                 if (pagesRes.ok) setPages(await pagesRes.json());
                 if (adAccountsRes.ok) setAdAccounts(await adAccountsRes.json());
+                if (businessesRes.ok) setBusinesses(await businessesRes.json());
             } else {
                 toast.error(data.error || "Erro ao sincronizar");
             }
@@ -293,6 +328,7 @@ export default function MetaIntegrationPage() {
             <Tabs defaultValue="pages" className="w-full">
                 <TabsList className="bg-gray-100/50 p-1 mb-6">
                     <TabsTrigger value="pages" className="text-md px-6 py-2">Páginas & Lead Ads</TabsTrigger>
+                    <TabsTrigger value="portfolios" className="text-md px-6 py-2">Portfólios (BM)</TabsTrigger>
                     <TabsTrigger value="ad-accounts" className="text-md px-6 py-2">Contas de Anúncios</TabsTrigger>
                     <TabsTrigger value="settings" className="text-md px-6 py-2">Configurações</TabsTrigger>
                 </TabsList>
@@ -445,6 +481,159 @@ export default function MetaIntegrationPage() {
                             </CardContent>
                         </Card>
                     )}
+                </TabsContent>
+                
+                <TabsContent value="portfolios" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {businesses.length === 0 && !loading && (
+                            <Card className="col-span-full py-12 border-dashed">
+                                <CardContent className="flex flex-col items-center justify-center text-center">
+                                    <Briefcase className="text-gray-400 h-10 w-10 mb-4" />
+                                    <h3 className="text-xl font-bold">Nenhum Portfólio de Negócios</h3>
+                                    <p className="text-gray-500">Não encontramos Gerenciadores de Negócios (BM) vinculados.</p>
+                                </CardContent>
+                            </Card>
+                        )}
+                        {businesses.map((biz) => (
+                            <Card 
+                                key={biz.id} 
+                                className={`border-2 transition-all cursor-pointer overflow-hidden ${expandedBusinessId === biz.id ? 'border-blue-500 shadow-lg' : 'hover:border-blue-200'}`}
+                                onClick={() => toggleBusinessExpansion(biz.id)}
+                            >
+                                <CardHeader className="bg-gray-50/50 border-b pb-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-blue-600 p-2 rounded-lg shadow-md">
+                                                <Briefcase className="text-white h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-lg">{biz.name}</CardTitle>
+                                                <p className="text-[10px] text-gray-400 font-mono">ID: {biz.id}</p>
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" className="bg-white text-blue-700 border-blue-200 uppercase text-[10px]">
+                                            {biz.vertical || "Geral"}
+                                        </Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6 pt-6">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="bg-blue-50 p-3 rounded-xl text-center border border-blue-100">
+                                            <p className="text-[10px] text-blue-600 font-bold uppercase">Contas</p>
+                                            <p className="text-xl font-black text-blue-900">
+                                                {loadingBusinessAssets[biz.id] ? "..." : (businessAssets[biz.id]?.adAccounts?.length || 0)}
+                                            </p>
+                                        </div>
+                                        <div className="bg-emerald-50 p-3 rounded-xl text-center border border-emerald-100">
+                                            <p className="text-[10px] text-emerald-600 font-bold uppercase">Páginas</p>
+                                            <p className="text-xl font-black text-emerald-900">
+                                                {loadingBusinessAssets[biz.id] ? "..." : (businessAssets[biz.id]?.pages?.length || 0)}
+                                            </p>
+                                        </div>
+                                        <div className="bg-purple-50 p-3 rounded-xl text-center border border-purple-100">
+                                            <p className="text-[10px] text-purple-600 font-bold uppercase">Insta</p>
+                                            <p className="text-xl font-black text-purple-900">
+                                                {loadingBusinessAssets[biz.id] ? "..." : (businessAssets[biz.id]?.instagramAccounts?.length || 0)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    {expandedBusinessId === biz.id && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300 border-t pt-6">
+                                            {loadingBusinessAssets[biz.id] ? (
+                                                <div className="py-8 text-center text-gray-400 animate-pulse">Carregando ativos do negócio...</div>
+                                            ) : (
+                                                <>
+                                                    {/* Detailed Ad Accounts */}
+                                                    {businessAssets[biz.id]?.adAccounts?.length > 0 && (
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
+                                                                <Target size={16} /> Contas de Anúncios
+                                                            </div>
+                                                            <div className="grid gap-2">
+                                                                {businessAssets[biz.id].adAccounts.map((acc: any) => (
+                                                                    <div key={acc.id} className="flex items-center justify-between p-3 bg-white border rounded-xl hover:shadow-sm transition-all group">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm font-bold text-gray-800">{acc.name}</span>
+                                                                            <span className="text-[10px] text-gray-400 font-mono">{acc.id}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="text-right">
+                                                                                <p className="text-[10px] text-gray-400 uppercase font-bold">Gasto</p>
+                                                                                <p className="text-xs font-black text-gray-900">
+                                                                                    {acc.currency} {(parseFloat(acc.amount_spent || 0) / 100).toLocaleString('pt-BR')}
+                                                                                </p>
+                                                                            </div>
+                                                                            <Badge className={acc.account_status === 1 ? "bg-emerald-500" : "bg-red-500"}>
+                                                                                {acc.account_status === 1 ? "Ativa" : "Erro"}
+                                                                            </Badge>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Detailed Pages */}
+                                                    {businessAssets[biz.id]?.pages?.length > 0 && (
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
+                                                                <Database size={16} /> Páginas do BM
+                                                            </div>
+                                                            <div className="grid gap-2">
+                                                                {businessAssets[biz.id].pages.map((p: any) => (
+                                                                    <div key={p.id} className="flex items-center justify-between p-3 bg-white border rounded-xl hover:shadow-sm transition-all">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm font-bold text-gray-800">{p.name}</span>
+                                                                            <span className="text-[10px] text-gray-400">{p.category}</span>
+                                                                        </div>
+                                                                        {p.verification_status !== 'not_verified' && (
+                                                                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">Verificada</Badge>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Detailed Instagram */}
+                                                    {businessAssets[biz.id]?.instagramAccounts?.length > 0 && (
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-2 text-purple-700 font-bold text-sm">
+                                                                <Instagram size={16} /> Contas de Instagram
+                                                            </div>
+                                                            <div className="grid gap-2">
+                                                                {businessAssets[biz.id].instagramAccounts.map((ig: any) => (
+                                                                    <div key={ig.id} className="flex items-center justify-between p-3 bg-white border rounded-xl hover:shadow-sm transition-all">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                                                                                {ig.username.charAt(0).toUpperCase()}
+                                                                            </div>
+                                                                            <span className="text-sm font-bold text-gray-800">@{ig.username}</span>
+                                                                        </div>
+                                                                        {ig.follow_count !== undefined && (
+                                                                            <span className="text-xs font-bold text-purple-600">{ig.follow_count} seguidores</span>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <Button 
+                                        variant="ghost" 
+                                        className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs font-bold uppercase tracking-wider"
+                                    >
+                                        {expandedBusinessId === biz.id ? "Recolher Detalhes" : "Explorar Portfólio"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="ad-accounts" className="space-y-6">

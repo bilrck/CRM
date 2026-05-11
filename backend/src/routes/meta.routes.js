@@ -20,12 +20,15 @@ router.put("/forms/:id/map", metaController.mapForm);
 
 // Ad Accounts & Campaigns
 router.get("/ad-accounts", metaController.listAdAccounts);
+router.get("/businesses", metaController.listBusinesses);
+router.get("/businesses/:businessId/assets", metaController.getBusinessAssets);
 router.get("/ad-accounts/:adAccountId/campaigns", metaController.listCampaigns);
 router.get("/insights/:objectId", metaController.getInsights);
 
 // Reports & Sync
 router.get("/report", metaController.getMetaReport);
 router.post("/sync", metaController.syncMeta);
+router.post("/forms/:formId/sync-leads", metaController.syncFormLeads);
 
 // Advanced Settings
 router.get("/settings", metaController.getSettings);
