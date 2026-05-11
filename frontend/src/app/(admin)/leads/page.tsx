@@ -138,7 +138,7 @@ export default function Leads() {
         toast.success(editingLead ? "Lead atualizado!" : "Lead criado!");
         setIsDialogOpen(false);
         setEditingLead(null);
-        setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "" });
+        setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "", customFields: {} });
         fetchLeads();
       } else {
         toast.error("Erro ao salvar lead");
