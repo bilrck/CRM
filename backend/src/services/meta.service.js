@@ -319,7 +319,7 @@ export const getBusinessPages = async (businessId, userAccessToken) => {
     for (const endpoint of endpoints) {
       try {
         const data = await request(
-          `${endpoint}?fields=id,name,category,picture{url}&access_token=${userAccessToken}&limit=100`
+          `${endpoint}?fields=id,name,category,access_token,picture{url}&access_token=${userAccessToken}&limit=100`
         );
         if (data.data) {
           pages.push(...data.data);

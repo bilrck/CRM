@@ -203,7 +203,7 @@ export const oauthCallback = async (req, res) => {
             where: { pageId: p.id },
             update: {
               name: p.name,
-              accessToken: pageToken || p.access_token,
+              accessToken: pageToken || p.access_token || undefined,
               category: p.category,
               pictureUrl: p.picture?.data?.url,
               businessId: savedBusiness.id
@@ -211,7 +211,7 @@ export const oauthCallback = async (req, res) => {
             create: {
               pageId: p.id,
               name: p.name,
-              accessToken: pageToken || p.access_token,
+              accessToken: pageToken || p.access_token || "",
               category: p.category,
               pictureUrl: p.picture?.data?.url,
               metaConnectionId: connection.id,
@@ -514,7 +514,7 @@ export const getBusinessAssets = async (req, res) => {
             name: p.name, 
             category: p.category, 
             pictureUrl: p.picture?.data?.url,
-            accessToken: pageToken || undefined,
+            accessToken: pageToken || p.access_token || undefined,
             businessId: business.id
           },
           create: {
@@ -522,7 +522,7 @@ export const getBusinessAssets = async (req, res) => {
             name: p.name,
             category: p.category,
             pictureUrl: p.picture?.data?.url,
-            accessToken: pageToken || "",
+            accessToken: pageToken || p.access_token || "",
             metaConnectionId: connection.id,
             businessId: business.id
           }
@@ -685,7 +685,7 @@ export const syncMeta = async (req, res) => {
           where: { pageId: p.id },
           update: {
             name: p.name,
-            accessToken: pageToken || p.access_token,
+            accessToken: pageToken || p.access_token || undefined,
             category: p.category,
             pictureUrl: p.picture?.data?.url,
             businessId: savedBusiness.id
@@ -693,7 +693,7 @@ export const syncMeta = async (req, res) => {
           create: {
             pageId: p.id,
             name: p.name,
-            accessToken: pageToken || p.access_token,
+            accessToken: pageToken || p.access_token || "",
             category: p.category,
             pictureUrl: p.picture?.data?.url,
             metaConnectionId: connection.id,
