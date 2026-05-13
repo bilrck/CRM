@@ -79,6 +79,15 @@ app.use(
 app.use(cookieParser());
 app.use(morgan(":method :url :status :response-time ms"));
 
+// 🔥 Prevenir cache global na API (importante para Next.js / Browser GET cache)
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  next();
+});
+
 // Adicione esta rota antes das outras rotas protegidas
 app.get("/auth/check", authMiddleware, (req, res) => {
   res.json({ isAuthenticated: true, user: req.user });

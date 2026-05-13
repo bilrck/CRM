@@ -238,6 +238,24 @@ export default function AuthForm({ mode: initialMode }: AuthFormProps) {
               </div>
             )}
 
+            {mode === 'register' && (
+              <div className="flex items-start gap-2 pt-2 pb-2">
+                <input 
+                  type="checkbox" 
+                  id="lgpd-consent" 
+                  name="lgpd-consent" 
+                  required 
+                  className="mt-1 w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2"
+                />
+                <label htmlFor="lgpd-consent" className="text-xs text-muted-foreground">
+                  Li e aceito os{' '}
+                  <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">Termos de Uso</a>
+                  {' '}e a{' '}
+                  <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">Política de Privacidade</a>.
+                </label>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}

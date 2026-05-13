@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -602,14 +603,14 @@ export default function Me() {
                   <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Transparência LGPD</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <button className="flex items-center justify-between p-3 rounded-xl bg-background border border-border hover:border-primary transition-colors text-left group">
+                  <Link href="/termos" className="flex items-center justify-between p-3 rounded-xl bg-background border border-border hover:border-primary transition-colors text-left group">
                     <span>Termos de Uso</span>
                     <Sparkles size={14} className="opacity-0 group-hover:opacity-100 text-primary" />
-                  </button>
-                  <button className="flex items-center justify-between p-3 rounded-xl bg-background border border-border hover:border-primary transition-colors text-left group">
+                  </Link>
+                  <Link href="/privacidade" className="flex items-center justify-between p-3 rounded-xl bg-background border border-border hover:border-primary transition-colors text-left group">
                     <span>Política de Privacidade</span>
                     <Sparkles size={14} className="opacity-0 group-hover:opacity-100 text-primary" />
-                  </button>
+                  </Link>
                 </div>
               </div>
             </TabsContent>

@@ -452,17 +452,21 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 py-12">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
+            <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
                   <MessageSquare className="text-white" size={24} />
                 </div>
                 <span className="text-white text-lg">WhatsApp CRM</span>
               </div>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-400 mb-4">
                 O CRM mais completo para vendas por WhatsApp e gerenciamento de anúncios.
               </p>
+              <div className="inline-flex items-center gap-2 bg-gray-800 px-3 py-1.5 rounded-lg text-xs text-gray-300 border border-gray-700">
+                <Shield size={14} className="text-emerald-500" />
+                Em conformidade com a LGPD
+              </div>
             </div>
             <div>
               <h4 className="text-white mb-4">Produto</h4>
@@ -474,15 +478,6 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
               </ul>
             </div>
             <div>
-              <h4 className="text-white mb-4">Empresa</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-emerald-400">Sobre</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Blog</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Carreiras</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Contato</a></li>
-              </ul>
-            </div>
-            <div>
               <h4 className="text-white mb-4">Suporte</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="#" className="hover:text-emerald-400">Central de Ajuda</a></li>
@@ -491,9 +486,16 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
                 <li><a href="#" className="hover:text-emerald-400">API</a></li>
               </ul>
             </div>
+            <div>
+              <h4 className="text-white mb-4">Legal (LGPD)</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/privacidade" className="hover:text-emerald-400 flex items-center gap-2"><Shield size={12}/> Política de Privacidade</Link></li>
+                <li><Link href="/termos" className="hover:text-emerald-400">Termos de Uso</Link></li>
+              </ul>
+            </div>
           </div>
           <div className="border-t border-gray-800 pt-8 text-center text-sm">
-            <p>&copy; 2024 WhatsApp CRM. Todos os direitos reservados.</p>
+            <p>&copy; 2026 Rastreia AI CRM. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
