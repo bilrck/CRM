@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -13,7 +14,9 @@ import {
   Loader2,
   Settings2, 
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Check,
+  Search
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -34,6 +37,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 interface Lead {
   id: number;
@@ -80,13 +84,19 @@ export default function Funil() {
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [isFunnelSettingsOpen, setIsFunnelSettingsOpen] = useState(false);
   
-  // Add Lead States
+  // Add/Link Lead States
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
   const [selectedStageForLead, setSelectedStageForLead] = useState<number | null>(null);
   const [leadForm, setLeadForm] = useState({ name: "", email: "", phone: "", value: "" });
   const [creatingLead, setCreatingLead] = useState(false);
   const [customFields, setCustomFields] = useState<any[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+
+  // Tab State for Lead Dialog
+  const [addLeadTab, setAddLeadTab] = useState<"link" | "simple" | "complete">("link");
+  const [allCRMLeads, setAllCRMLeads] = useState<Lead[]>([]);
+  const [searchCRMTerm, setSearchCRMTerm] = useState("");
+  const [selectedLeadToLink, setSelectedLeadToLink] = useState<number | null>(null);
 
   const fetchFunnels = useCallback(async () => {
     try {
@@ -107,11 +117,6 @@ export default function Funil() {
     }
   }, [selectedFunnelId]);
 
-  useEffect(() => {
-    fetchFunnels();
-    fetchCustomFields();
-  }, [fetchFunnels]);
-
   const fetchCustomFields = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/custom-fields?entityType=LEAD`, { credentials: 'include' });
@@ -124,10 +129,38 @@ export default function Funil() {
     }
   };
 
+  const fetchAllLeads = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAllCRMLeads(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar todos os leads:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchFunnels();
+    fetchCustomFields();
+  }, [fetchFunnels]);
+
+  useEffect(() => {
+    if (isAddLeadDialogOpen) {
+      fetchAllLeads();
+      setAddLeadTab("link");
+      setSearchCRMTerm("");
+      setSelectedLeadToLink(null);
+      setLeadForm({ name: "", email: "", phone: "", value: "" });
+      setCustomFieldValues({});
+    }
+  }, [isAddLeadDialogOpen]);
+
   const selectedFunnel = funnels.find(f => f.id.toString() === selectedFunnelId);
   const stages = selectedFunnel?.stages || [];
 
-  // 🔥 Export to CSV
+  // Export to CSV
   const handleExport = () => {
     if (!selectedFunnel) return;
     
@@ -387,7 +420,78 @@ export default function Funil() {
     }
   };
 
-  const handleAddLead = async () => {
+  // Link Existing Lead Trigger
+  const handleLinkLead = async () => {
+    if (!selectedLeadToLink || !selectedStageForLead || !selectedFunnel) return;
+    try {
+      setCreatingLead(true);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${selectedLeadToLink}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          funnelId: selectedFunnel.id,
+          stageId: selectedStageForLead
+        }),
+        credentials: "include"
+      });
+
+      if (res.ok) {
+        toast.success("Lead vinculado com sucesso!");
+        setIsAddLeadDialogOpen(false);
+        setSelectedLeadToLink(null);
+        setSearchCRMTerm("");
+        fetchFunnels();
+      } else {
+        toast.error("Erro ao vincular lead");
+      }
+    } catch {
+      toast.error("Erro na conexão");
+    } finally {
+      setCreatingLead(false);
+    }
+  };
+
+  // Create Simplified Lead Trigger
+  const handleAddLeadSimple = async () => {
+    if (!selectedFunnel || !selectedStageForLead) return;
+    if (!leadForm.name) return toast.error("Nome é obrigatório");
+
+    try {
+      setCreatingLead(true);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: leadForm.name,
+          phone: leadForm.phone || null,
+          email: leadForm.email || null,
+          funnelId: selectedFunnel.id,
+          stageId: selectedStageForLead,
+          status: "new",
+          source: "manual",
+          value: 0
+        }),
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        toast.success("Lead simplificado criado!");
+        setIsAddLeadDialogOpen(false);
+        setLeadForm({ name: "", email: "", phone: "", value: "" });
+        fetchFunnels();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Erro ao adicionar lead");
+      }
+    } catch {
+      toast.error("Erro na conexão");
+    } finally {
+      setCreatingLead(false);
+    }
+  };
+
+  // Create Full Lead Trigger
+  const handleAddLeadComplete = async () => {
     if (!selectedFunnel || !selectedStageForLead) return;
     if (!leadForm.name) return toast.error("Nome é obrigatório");
 
@@ -408,7 +512,7 @@ export default function Funil() {
       });
 
       if (res.ok) {
-        toast.success("Lead adicionado com sucesso!");
+        toast.success("Lead completo adicionado com sucesso!");
         setIsAddLeadDialogOpen(false);
         setLeadForm({ name: "", email: "", phone: "", value: "" });
         setCustomFieldValues({});
@@ -423,6 +527,20 @@ export default function Funil() {
       setCreatingLead(false);
     }
   };
+
+  // Filter existing CRM leads based on search term
+  const filteredCRMLeads = allCRMLeads.filter(lead => {
+    const term = searchCRMTerm.toLowerCase();
+    // Exclude leads that are already assigned to this stage to avoid redundancy
+    const alreadyLinked = stages.find(s => s.id === selectedStageForLead)?.leads?.some(l => l.id === lead.id);
+    if (alreadyLinked) return false;
+
+    return (
+      lead.name.toLowerCase().includes(term) ||
+      (lead.email || "").toLowerCase().includes(term) ||
+      (lead.phone || "").includes(searchCRMTerm)
+    );
+  });
 
   if (loading && funnels.length === 0) return <div className="p-8">Carregando...</div>;
 
@@ -449,7 +567,7 @@ export default function Funil() {
                 <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Processos Ativos</div>
                 {funnels.map(f => (
                   <DropdownMenuItem key={f.id} onClick={() => setSelectedFunnelId(f.id.toString())} className="justify-between cursor-pointer">
-                    {f.name}
+                     {f.name}
                     {f.id.toString() === selectedFunnelId && <Badge variant="secondary" className="h-4 text-[8px] px-1">Ativo</Badge>}
                   </DropdownMenuItem>
                 ))}
@@ -536,12 +654,6 @@ export default function Funil() {
                                 <div className="flex justify-between items-start">
                                     <span className="font-bold text-card-foreground tracking-tight">{stage.name}</span>
                                     <div className="flex gap-1 items-center">
-                                        <button 
-                                          onClick={() => { setSelectedStageForLead(stage.id); setIsAddLeadDialogOpen(true); }} 
-                                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold"
-                                        >
-                                          <Plus className="w-3.5 h-3.5" /> ADD
-                                        </button>
                                         <div className="flex gap-1 opacity-0 group-hover/stage:opacity-100 transition-opacity">
                                             <button onClick={() => openStageDialog(stage)} className="p-1.5 text-muted-foreground hover:text-primary bg-muted rounded-lg transition-colors"><Pencil className="w-3 h-3" /></button>
                                             <button onClick={() => deleteStage(stage.id)} className="p-1.5 text-muted-foreground hover:text-destructive bg-muted rounded-lg transition-colors"><Trash className="w-3 h-3" /></button>
@@ -554,37 +666,55 @@ export default function Funil() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 bg-muted/20 backdrop-blur-[2px] rounded-2xl border border-dashed border-border/50 p-3 space-y-3 overflow-y-auto">
-                                {leads.map(lead => (
-                                    <Card
-                                        key={lead.id}
-                                        draggable
-                                        onDragStart={() => handleDragStart(lead)}
-                                        className={`p-4 shadow-md hover:shadow-xl cursor-grab active:cursor-grabbing border-none transition-all duration-300 bg-card hover:scale-[1.03] group/card relative overflow-hidden`}
-                                    >
-                                        <div className={`absolute top-0 left-0 w-1 h-full ${stage.color || 'bg-primary'}`} />
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between items-start">
-                                              <p className="text-sm font-bold text-card-foreground leading-tight flex-1 pr-4">{lead.name}</p>
-                                              <button 
-                                                className="opacity-0 group-hover/card:opacity-100 p-1.5 text-muted-foreground hover:text-destructive bg-muted rounded-lg transition-all shadow-sm"
-                                                title="Limpar Follow-up"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  deleteFollowUp(lead.id);
-                                                }}
-                                              >
-                                                <Trash className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[10px]">
-                                                <Badge variant="secondary" className="bg-secondary text-secondary-foreground font-bold border-none px-2 rounded-full h-5 text-[8px] uppercase tracking-wider">{lead.source || "Manual"}</Badge>
-                                                <span className="font-extrabold text-primary text-xs">R$ {Number(lead.value).toLocaleString('pt-BR')}</span>
-                                            </div>
-                                        </div>
-                                    </Card>
-                                ))}
+                            {/* Kanban Leads list container */}
+                            <div className="flex-1 bg-muted/20 backdrop-blur-[2px] rounded-2xl border border-dashed border-border/50 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-340px)]">
+                                {leads.length === 0 ? (
+                                  <div className="text-center py-8 text-[11px] text-slate-400 font-medium">Nenhum lead nesta etapa.</div>
+                                ) : (
+                                  leads.map(lead => (
+                                      <Card
+                                          key={lead.id}
+                                          draggable
+                                          onDragStart={() => handleDragStart(lead)}
+                                          className={`p-4 shadow-md hover:shadow-xl cursor-grab active:cursor-grabbing border-none transition-all duration-300 bg-card hover:scale-[1.03] group/card relative overflow-hidden`}
+                                      >
+                                          <div className={`absolute top-0 left-0 w-1 h-full ${stage.color || 'bg-primary'}`} />
+                                          <div className="space-y-3">
+                                              <div className="flex justify-between items-start">
+                                                <p className="text-sm font-bold text-card-foreground leading-tight flex-1 pr-4">{lead.name}</p>
+                                                <button 
+                                                  className="opacity-0 group-hover/card:opacity-100 p-1.5 text-muted-foreground hover:text-destructive bg-muted rounded-lg transition-all shadow-sm"
+                                                  title="Limpar Follow-up"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteFollowUp(lead.id);
+                                                  }}
+                                                >
+                                                  <Trash className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                              <div className="flex justify-between items-center text-[10px]">
+                                                  <Badge variant="secondary" className="bg-secondary text-secondary-foreground font-bold border-none px-2 rounded-full h-5 text-[8px] uppercase tracking-wider">{lead.source || "Manual"}</Badge>
+                                                  <span className="font-extrabold text-primary text-xs">R$ {Number(lead.value).toLocaleString('pt-BR')}</span>
+                                              </div>
+                                          </div>
+                                      </Card>
+                                  ))
+                                )}
                             </div>
+
+                            {/* Dynamic Add Lead Button moved to the BOTTOM of the stage for premium visibility */}
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedStageForLead(stage.id);
+                                setIsAddLeadDialogOpen(true);
+                              }}
+                              className="w-full border-dashed border-slate-300 hover:border-primary text-slate-500 hover:text-primary hover:bg-primary/5 rounded-xl h-10 font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-all duration-200"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Adicionar Lead
+                            </Button>
                         </div>
                     )
                 })}
@@ -732,105 +862,267 @@ export default function Funil() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Lead Dialog */}
+      {/* =========================================================
+          TABBED DIALOG FOR ADDING OR LINKING LEADS TO KANBAN STAGE
+          ========================================================= */}
       <Dialog open={isAddLeadDialogOpen} onOpenChange={setIsAddLeadDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo Lead</DialogTitle>
+        <DialogContent className="sm:max-w-[520px] rounded-2xl p-6">
+          <DialogHeader className="pb-2 border-b">
+            <DialogTitle className="text-xl font-bold text-slate-800">Adicionar Lead ao Funil</DialogTitle>
             <DialogDescription>
-              Adicionar lead manualmente ao estágio: <strong className="text-primary">{stages.find(s => s.id === selectedStageForLead)?.name}</strong>
+              Adicione ou vincule um lead ao estágio: <strong className="text-primary">{stages.find(s => s.id === selectedStageForLead)?.name}</strong>
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nome do Lead</Label>
-                <Input 
-                  placeholder="Ex: João Silva" 
-                  value={leadForm.name} 
-                  onChange={e => setLeadForm({...leadForm, name: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Valor Estimado</Label>
-                <Input 
-                  type="number" 
-                  placeholder="0.00" 
-                  value={leadForm.value} 
-                  onChange={e => setLeadForm({...leadForm, value: e.target.value})}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input 
-                type="email" 
-                placeholder="email@exemplo.com" 
-                value={leadForm.email} 
-                onChange={e => setLeadForm({...leadForm, email: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefone</Label>
-              <Input 
-                placeholder="(00) 00000-0000" 
-                value={leadForm.phone} 
-                onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
-              />
-            </div>
 
-            {/* 🔥 Custom Fields */}
-            {customFields.length > 0 && (
-              <div className="pt-4 border-t space-y-4">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Informações Adicionais</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {customFields.map(field => (
-                    <div key={field.id} className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        {field.name}
-                        {field.isRequired && <span className="text-red-500">*</span>}
-                      </Label>
-                      {field.type === "SELECT" ? (
-                        <Select 
-                          value={customFieldValues[field.name] || ""} 
-                          onValueChange={val => setCustomFieldValues(prev => ({ ...prev, [field.name]: val }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={field.placeholder || "Selecione..."} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {field.options?.map((opt: string) => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : field.type === "BOOLEAN" ? (
-                        <div className="flex items-center space-x-2 h-10">
-                          <Switch 
-                            checked={!!customFieldValues[field.name]}
-                            onCheckedChange={val => setCustomFieldValues(prev => ({ ...prev, [field.name]: val }))}
-                          />
-                          <span className="text-sm text-muted-foreground">{customFieldValues[field.name] ? "Sim" : "Não"}</span>
-                        </div>
-                      ) : (
-                        <Input 
-                          type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
-                          placeholder={field.placeholder || ""}
-                          value={customFieldValues[field.name] || ""}
-                          onChange={e => setCustomFieldValues(prev => ({ ...prev, [field.name]: e.target.value }))}
-                        />
-                      )}
-                    </div>
-                  ))}
+          {/* Premium custom horizontal tab selection */}
+          <div className="flex bg-slate-100/70 p-1.5 rounded-xl border border-slate-200/50 mt-4 mb-4 gap-1">
+            <button
+              onClick={() => setAddLeadTab("link")}
+              className={cn(
+                "flex-1 text-xs py-2 px-3 rounded-lg font-bold transition-all",
+                addLeadTab === "link"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/40"
+              )}
+            >
+              Buscar Existente
+            </button>
+            <button
+              onClick={() => setAddLeadTab("simple")}
+              className={cn(
+                "flex-1 text-xs py-2 px-3 rounded-lg font-bold transition-all",
+                addLeadTab === "simple"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/40"
+              )}
+            >
+              Novo (Simplificado)
+            </button>
+            <button
+              onClick={() => setAddLeadTab("complete")}
+              className={cn(
+                "flex-1 text-xs py-2 px-3 rounded-lg font-bold transition-all",
+                addLeadTab === "complete"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/40"
+              )}
+            >
+              Novo (Completo)
+            </button>
+          </div>
+
+          <div className="py-2 space-y-4">
+            
+            {/* VIEW 1: SEARCH & LINK EXISTING LEAD */}
+            {addLeadTab === "link" && (
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input 
+                    placeholder="Pesquisar por nome, celular ou e-mail..."
+                    value={searchCRMTerm}
+                    onChange={e => setSearchCRMTerm(e.target.value)}
+                    className="pl-9 rounded-xl text-sm"
+                  />
                 </div>
+
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                  {filteredCRMLeads.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-slate-400 font-medium">Nenhum lead disponível para vínculo.</div>
+                  ) : (
+                    filteredCRMLeads.map(l => (
+                      <div
+                        key={l.id}
+                        onClick={() => setSelectedLeadToLink(l.id)}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all",
+                          selectedLeadToLink === l.id 
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-border hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-slate-800">{l.name}</span>
+                          <span className="text-[11px] text-slate-500">{l.phone || l.email || "Sem dados de contato"}</span>
+                        </div>
+                        {selectedLeadToLink === l.id && (
+                          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white">
+                            <Check className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <Button 
+                  onClick={handleLinkLead} 
+                  className="w-full bg-primary hover:bg-primary/95 text-white rounded-xl font-bold mt-2"
+                  disabled={!selectedLeadToLink || creatingLead}
+                >
+                  {creatingLead ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Vincular Lead Selecionado
+                </Button>
               </div>
             )}
+
+            {/* VIEW 2: NEW LEAD SIMPLIFIED */}
+            {addLeadTab === "simple" && (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-700">Nome Completo *</Label>
+                  <Input 
+                    placeholder="Ex: João Silva" 
+                    value={leadForm.name}
+                    onChange={e => setLeadForm({...leadForm, name: e.target.value})}
+                    className="rounded-xl"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Telefone</Label>
+                    <Input 
+                      placeholder="Ex: (11) 98765-4321" 
+                      value={leadForm.phone}
+                      onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">E-mail</Label>
+                    <Input 
+                      type="email"
+                      placeholder="joao@exemplo.com" 
+                      value={leadForm.email}
+                      onChange={e => setLeadForm({...leadForm, email: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleAddLeadSimple} 
+                  className="w-full bg-primary hover:bg-primary/95 text-white rounded-xl font-bold mt-4"
+                  disabled={creatingLead || !leadForm.name}
+                >
+                  {creatingLead ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Criar Lead Simplificado
+                </Button>
+              </div>
+            )}
+
+            {/* VIEW 3: NEW LEAD COMPLETE */}
+            {addLeadTab === "complete" && (
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Nome do Lead *</Label>
+                    <Input 
+                      placeholder="Ex: João Silva" 
+                      value={leadForm.name} 
+                      onChange={e => setLeadForm({...leadForm, name: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Valor Estimado (R$)</Label>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={leadForm.value} 
+                      onChange={e => setLeadForm({...leadForm, value: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Email</Label>
+                    <Input 
+                      type="email" 
+                      placeholder="email@exemplo.com" 
+                      value={leadForm.email} 
+                      onChange={e => setLeadForm({...leadForm, email: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Telefone</Label>
+                    <Input 
+                      placeholder="(00) 00000-0000" 
+                      value={leadForm.phone} 
+                      onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                {/* Custom Fields list for complete layout */}
+                {customFields.length > 0 && (
+                  <div className="pt-3 border-t space-y-4">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Informações Adicionais</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {customFields.map(field => (
+                        <div key={field.id} className="space-y-1.5">
+                          <Label className="flex items-center gap-1 text-xs font-semibold text-slate-700">
+                            {field.name}
+                            {field.isRequired && <span className="text-red-500">*</span>}
+                          </Label>
+                          {field.type === "SELECT" ? (
+                            <Select 
+                              value={customFieldValues[field.name] || ""} 
+                              onValueChange={val => setCustomFieldValues(prev => ({ ...prev, [field.name]: val }))}
+                            >
+                              <SelectTrigger className="rounded-xl">
+                                <SelectValue placeholder={field.placeholder || "Selecione..."} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {field.options?.map((opt: string) => (
+                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : field.type === "BOOLEAN" ? (
+                            <div className="flex items-center space-x-2 h-10">
+                              <Switch 
+                                checked={!!customFieldValues[field.name]}
+                                onCheckedChange={val => setCustomFieldValues(prev => ({ ...prev, [field.name]: val }))}
+                              />
+                              <span className="text-sm text-muted-foreground">{customFieldValues[field.name] ? "Sim" : "Não"}</span>
+                            </div>
+                          ) : (
+                            <Input 
+                              type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+                              placeholder={field.placeholder || ""}
+                              value={customFieldValues[field.name] || ""}
+                              onChange={e => setCustomFieldValues(prev => ({ ...prev, [field.name]: e.target.value }))}
+                              className="rounded-xl"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={handleAddLeadComplete} 
+                  className="w-full bg-primary hover:bg-primary/95 text-white rounded-xl font-bold mt-4"
+                  disabled={creatingLead || !leadForm.name}
+                >
+                  {creatingLead ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Criar Lead Completo
+                </Button>
+              </div>
+            )}
+
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddLeadDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddLead} disabled={creatingLead}>
-              {creatingLead ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Criar Lead
+
+          <DialogFooter className="pt-3 border-t">
+            <Button variant="outline" onClick={() => setIsAddLeadDialogOpen(false)} className="rounded-xl">
+              Cancelar
             </Button>
           </DialogFooter>
         </DialogContent>

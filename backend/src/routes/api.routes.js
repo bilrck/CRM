@@ -19,6 +19,8 @@ import {
   apiUpdateUserRole,
   apiRemoveUser,
   apiGetReports,
+  apiListTasks,
+  apiCreateTask,
 } from "../controllers/api.controller.js";
 
 const router = express.Router();
@@ -55,5 +57,9 @@ router.delete("/users/:id", apiRemoveUser);
 
 // Reports
 router.get("/reports/dashboard", apiGetReports);
+
+// Tasks
+router.get("/tasks", apiListTasks);
+router.post("/tasks", apiCreateTask);
 
 export default router;

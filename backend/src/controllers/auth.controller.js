@@ -111,6 +111,47 @@ export const login = async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: "Senha incorreta" });
 
+    // 🛡️ Check if Two-Factor Authentication is enabled
+    const prefs = user.preferences ? (typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences) : {};
+    if (prefs.twoFactorEnabled) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Save to user preferences JSON
+      const newPrefs = {
+        ...prefs,
+        twoFactorCode: code,
+        twoFactorExpiresAt: expires.toISOString()
+      };
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { preferences: newPrefs }
+      });
+
+      // Send 2FA code via E-mail
+      await sendMail(
+        user.email,
+        "Código de Segurança - Dois Fatores (2FA)",
+        `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #2563eb; font-weight: bold; margin-bottom: 5px;">Rastreia AI</h2>
+          <p style="color: #475569; font-size: 12px; margin-top: 0; margin-bottom: 20px;">Segurança de Conta</p>
+          <p>Olá, <strong>${user.name}</strong>.</p>
+          <p>Você está tentando fazer login no sistema. Por segurança, digite o código de verificação abaixo no painel:</p>
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; text-align: center; color: #2563eb; background-color: #f8fafc; padding: 20px; border-radius: 12px; margin: 25px auto; max-width: 240px; border: 1px dashed #cbd5e1;">
+            ${code}
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+            Este código expira em 5 minutos. Se você não solicitou isso, altere sua senha imediatamente por segurança.
+          </p>
+        </div>
+        `
+      );
+
+      return res.json({ twoFactorRequired: true, email: user.email });
+    }
+
     // Payload completo
     const token = jwt.sign(
       {
@@ -283,3 +324,69 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ error: "Erro ao redefinir senha. Link inválido ou expirado." });
   }
 };
+
+// ========================================
+// VERIFY 2FA CODE & SIGN IN
+// ========================================
+export const verify2FA = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: "E-mail e código de segurança são obrigatórios." });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    const prefs = user.preferences ? (typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences) : {};
+
+    if (!prefs.twoFactorCode || prefs.twoFactorCode !== code) {
+      return res.status(400).json({ error: "Código de verificação incorreto." });
+    }
+
+    if (new Date(prefs.twoFactorExpiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ error: "Código de verificação expirado." });
+    }
+
+    // Clean 2FA temp code from preferences
+    const { twoFactorCode, twoFactorExpiresAt, ...cleanedPrefs } = prefs;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { preferences: cleanedPrefs }
+    });
+
+    // Login user successfully
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const isProduction = process.env.NODE_ENV === "production";
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      path: "/"
+    };
+    if (isProduction && process.env.COOKIE_DOMAIN) {
+      cookieOptions.domain = process.env.COOKIE_DOMAIN;
+    }
+    res.cookie("token", token, cookieOptions);
+
+    const { password: _, ...rest } = user;
+    return res.json({ user: rest });
+  } catch (err) {
+    console.error("Erro na verificação de 2FA:", err);
+    return res.status(500).json({ error: "Erro interno ao processar verificação de 2FA." });
+  }
+};
+

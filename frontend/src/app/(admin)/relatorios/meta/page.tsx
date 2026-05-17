@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Facebook, RefreshCw, TrendingUp, DollarSign, MousePointerClick, Eye, Users, FileText, AlertTriangle, Briefcase, Instagram, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { useSystemConfig } from "@/app/api/userProvider";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -45,6 +46,7 @@ function StatCard({ icon: Icon, label, value, sub, color = "blue" }: any) {
 }
 
 export default function MetaReportPage() {
+  const { modules } = useSystemConfig();
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [range, setRange] = useState("last_30d");
@@ -58,6 +60,22 @@ export default function MetaReportPage() {
   // Filters
   const [filterAdAccount, setFilterAdAccount] = useState("all");
   const [filterBusiness, setFilterBusiness] = useState("all");
+
+  if (modules.meta === false) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex flex-col items-center py-16 text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
+            <h3 className="text-xl font-bold text-red-800 mb-2">Módulo Desativado</h3>
+            <p className="text-red-700 max-w-md">
+              O módulo de integração com a Meta Ads foi desativado pelo administrador do sistema.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const fetchReport = async (selectedRange = range, bizId = filterBusiness) => {
     setLoading(true);

@@ -54,6 +54,7 @@ model User {
   licenseActivations     LicenseActivation[]
   aiSettings             AiSetting?
   aiChats                AiChatHistory[]
+  tasks                  Task[]
 }
 
 model Workspace {
@@ -94,6 +95,9 @@ model Workspace {
   // 🛡️ Workspace Subscription (Can be inherited from Owner)
   status       String @default("ACTIVE") // ACTIVE, BLOCKED
   maxInstances Int    @default(1) // Instances allocated to THIS workspace
+  tasks         Task[]
+  documents     LeadDocument[]
+  paymentConfig PaymentConfig?
 }
 
 model WorkspaceMember {
@@ -255,6 +259,14 @@ model Lead {
   metaLeadForm   MetaLeadForm? @relation("FormLeads", fields: [metaLeadFormId], references: [id])
 
   metadata Json? // 🔥 Raw data from external integrations (Meta Lead Ads, etc)
+  tasks     Task[]
+  documents LeadDocument[]
+
+  @@index([workspaceId])
+  @@index([stageId])
+  @@index([ownerId])
+  @@index([funnelId])
+  @@index([status])
 }
 
 model Equipe {
@@ -638,14 +650,15 @@ model Property {
 }
 
 model Plan {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  daysValid   Int      @default(30)
-  price       Decimal  @db.Decimal(10, 2)
-  role        String   @default("CLIENTE")
-  features    String[] @default([])
-  isActive    Boolean  @default(true)
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  daysValid      Int      @default(30)
+  price          Decimal  @db.Decimal(10, 2)
+  role           String   @default("CLIENTE")
+  features       String[] @default([])
+  isActive       Boolean  @default(true)
+  isSubscription Boolean  @default(false)
 
   keys LicenseKey[]
 
@@ -740,3 +753,72 @@ model MetaUnifiedLead {
   @@index([workspaceId])
   @@index([metaLeadId])
 }
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?  @db.Text
+  status      String   @default("PENDING") // PENDING, COMPLETED, CANCELED
+  priority    String   @default("MEDIUM")  // LOW, MEDIUM, HIGH
+  
+  dueDate     DateTime?
+  
+  reminderAt       DateTime?
+  reminderType     String?   @default("SYSTEM") // SYSTEM, WHATSAPP, BOTH
+  reminderSent     Boolean   @default(false)
+  
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  
+  leadId      Int?
+  lead        Lead?     @relation(fields: [leadId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model LeadDocument {
+  id        Int      @id @default(autoincrement())
+  name      String
+  fileUrl   String
+  mimeType  String?
+  size      Int?     // Size in bytes
+  
+  leadId    Int
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([workspaceId])
+}
+
+model PaymentConfig {
+  id          Int      @id @default(autoincrement())
+  provider    String   @default("MERCADO_PAGO") // MERCADO_PAGO, STRIPE, etc
+  isActive    Boolean  @default(true)
+  
+  publicKey    String?
+  accessToken  String?
+  clientSecret String?
+  webhookSecret String?
+  
+  mode        String   @default("SANDBOX") // SANDBOX, PRODUCTION
+
+  workspaceId Int?     @unique
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

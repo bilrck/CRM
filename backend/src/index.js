@@ -39,6 +39,7 @@ import licenseRoutes from "./routes/license.routes.js";
 import planRoutes from "./routes/plan.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import customFieldsRoutes from "./routes/custom-fields.routes.js";
+import taskRoutes from "./routes/tasks.routes.js";
 import helmet from "helmet";
 
 const app = express();
@@ -71,11 +72,13 @@ app.use(
 
 app.use(
   express.json({
+    limit: "50mb",
     verify: (req, res, buf) => {
       req.rawBody = buf;
     },
   })
 );
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
 app.use(morgan(":method :url :status :response-time ms"));
 
@@ -122,6 +125,7 @@ app.use("/notifications", authMiddleware, subscriptionMiddleware, notificationsR
 app.use("/license", licenseRoutes);
 app.use("/plans", planRoutes);
 app.use("/ai", authMiddleware, aiRoutes);
+app.use("/tasks", taskRoutes);
 
 // Connection routes (using "/" as base but protected)
 app.use("/", authMiddleware, subscriptionMiddleware, connectionRoutes);
@@ -137,9 +141,11 @@ import { initSocket } from "./services/socket.service.js";
 import { startFollowUpWorker } from "./services/followUp.service.js";
 import { startBillingWorker } from "./services/billing.service.js";
 import { startMetaSyncWorker } from "./services/metaSync.service.js";
+import { startTaskReminderWorker } from "./services/taskReminder.service.js";
 
 initSocket(server);
 startFollowUpWorker();
 startBillingWorker();
 startMetaSyncWorker();
+startTaskReminderWorker();
  

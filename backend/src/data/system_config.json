@@ -1,0 +1,14 @@
+{
+  "systemName": "Rastreia.ai",
+  "modules": {
+    "whatsapp": true,
+    "meta": false,
+    "googleAds": false
+  },
+  "backup": {
+    "enabled": false,
+    "frequency": "WEEKLY",
+    "time": "02:00",
+    "retentionDays": 30
+  }
+}

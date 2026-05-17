@@ -72,7 +72,9 @@ export default function Me() {
     language: "pt-BR",
     timezone: "America/Sao_Paulo",
     dateFormat: "DD/MM/YYYY",
-    currency: "BRL"
+    currency: "BRL",
+    twoFactorEnabled: false,
+    twoFactorMethod: "EMAIL"
   });
 
   // Sync theme with next-themes
@@ -101,7 +103,18 @@ export default function Me() {
         avatar: user.avatarUrl || ""
       });
       if (user.notificationSettings) setNotifData(user.notificationSettings);
-      if (user.preferences) setPrefData(user.preferences);
+      if (user.preferences) {
+        setPrefData({
+          theme: "light",
+          language: "pt-BR",
+          timezone: "America/Sao_Paulo",
+          dateFormat: "DD/MM/YYYY",
+          currency: "BRL",
+          twoFactorEnabled: false,
+          twoFactorMethod: "EMAIL",
+          ...user.preferences
+        });
+      }
     }
   }, [user]);
 
@@ -535,18 +548,63 @@ export default function Me() {
                     </Button>
                   </div>
 
-                  <div className="pt-8 border-t border-border/50">
-                    <div className="flex items-center justify-between p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/20">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <div className="pt-8 border-t border-border/50 space-y-6">
+                    <div className={`flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border transition-all duration-300 gap-4 ${prefData.twoFactorEnabled ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-50 border-slate-100'}`}>
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${prefData.twoFactorEnabled ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-200 text-slate-500'}`}>
                           <Shield size={24} />
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-bold text-foreground">Autenticação de Dois Fatores (2FA)</p>
-                          <p className="text-xs text-muted-foreground">Sua conta está protegida com verificação adicional.</p>
+                          <p className="text-xs text-muted-foreground">
+                            {prefData.twoFactorEnabled 
+                              ? "Sua conta está protegida com código adicional obrigatório no login." 
+                              : "Adicione uma camada extra de segurança ao fazer login."}
+                          </p>
                         </div>
                       </div>
-                      <Badge className="bg-emerald-500 text-white border-none">Ativado</Badge>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {prefData.twoFactorEnabled ? "Ativado" : "Desativado"}
+                        </span>
+                        <Switch 
+                          checked={!!prefData.twoFactorEnabled} 
+                          onCheckedChange={(val) => setPrefData({ ...prefData, twoFactorEnabled: val })}
+                        />
+                      </div>
+                    </div>
+
+                    {prefData.twoFactorEnabled && (
+                      <div className="p-5 bg-slate-50 border border-slate-100 dark:bg-zinc-900 dark:border-zinc-800 rounded-2xl space-y-4 animate-in slide-in-from-top-3 duration-300">
+                        <h4 className="text-sm font-bold text-foreground">Canal de Recebimento do Código</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-semibold">Método de Envio</Label>
+                            <Select 
+                              value={prefData.twoFactorMethod || "EMAIL"} 
+                              onValueChange={(val) => setPrefData({ ...prefData, twoFactorMethod: val })}
+                            >
+                              <SelectTrigger className="rounded-xl bg-background border-input">
+                                <SelectValue placeholder="Selecione..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="EMAIL">Receber código por E-mail ({profileData.email})</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
+                          <Info size={14} className="text-primary" />
+                          Ao fazer login, enviaremos um código de 6 dígitos para o seu email que expirará em 5 minutos.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-2">
+                      <Button onClick={handleSavePreferences} disabled={loading} className="px-6 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white">
+                        {loading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+                        Salvar Configurações de Segurança
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

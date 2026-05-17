@@ -1,12 +1,12 @@
+import cron from "node-cron";
 import prisma from "../config/prisma.js";
 import { sendMessage } from "./evolution.service.js";
 import { createNotification } from "../controllers/notifications.controller.js";
 
 export const startFollowUpWorker = () => {
-  console.log("Follow-up worker started");
+  console.log("Follow-up worker started (every minute)");
 
-  // Rodar a cada 1 minuto
-  setInterval(async () => {
+  cron.schedule("* * * * *", async () => {
     try {
       const now = new Date();
 
@@ -37,21 +37,21 @@ export const startFollowUpWorker = () => {
             "Lembrete de Follow-up",
             `Atenção: Follow-up com ${lead.name} em breve!`,
             "WARNING",
-            "message"
+            "followUp"
           );
         }
 
         // Ação: Enviar WhatsApp (Lembrete)
         if (actions.includes("REMINDER") && config.message) {
           const connection = await prisma.connection.findFirst({
-            where: { workspaceId: lead.workspaceId, status: "CONNECTED" },
+            where: { workspaceId: lead.workspaceId, status: "connected" },
           });
 
           if (connection && lead.phone) {
             const cleanPhone = lead.phone.replace(/\D/g, "");
             try {
               await sendMessage(
-                connection.apiUrl,
+                connection.apiSecret,
                 connection.apiKey,
                 cleanPhone,
                 config.message,
@@ -91,11 +91,6 @@ export const startFollowUpWorker = () => {
           ? lead.followUpAction.split(",")
           : [];
 
-        // Se o lembrete não foi disparado ainda (ex: timing era "na hora"), dispara agora
-        if (!lead.reminderTriggered) {
-          // (Opcional: Mesma lógica de NOTIFY/REMINDER do bloco acima se desejar redundância)
-        }
-
         // Ação: Mover Funil
         if (actions.includes("MOVE_FUNNEL") && config.stageId) {
           await prisma.lead.update({
@@ -113,5 +108,5 @@ export const startFollowUpWorker = () => {
     } catch (error) {
       console.error("Erro no Follow-up Worker:", error);
     }
-  }, 60000);
+  });
 };

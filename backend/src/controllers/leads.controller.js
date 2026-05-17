@@ -75,7 +75,22 @@ export const listLeads = async (req, res) => {
 
 export const getLead = async (req, res) => {
   const id = Number(req.params.id);
-  const lead = await prisma.lead.findUnique({ where: { id } });
+  const lead = await prisma.lead.findUnique({ 
+    where: { id },
+    include: {
+      owner: { select: { name: true } },
+      funnel: { select: { name: true } },
+      stage: { select: { name: true } },
+      documents: true,
+      tasks: {
+        orderBy: { dueDate: "asc" }
+      },
+      whatsappConversations: {
+        take: 5,
+        orderBy: { updatedAt: "desc" }
+      }
+    }
+  });
 
   if (!lead) return res.status(404).json({ error: "Lead não encontrado" });
 
@@ -85,6 +100,38 @@ export const getLead = async (req, res) => {
   }
 
   res.json(lead);
+};
+
+export const addLeadDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, url, mimetype, size } = req.body;
+
+    const doc = await prisma.leadDocument.create({
+      data: {
+        name,
+        fileUrl: url,
+        mimeType: mimetype,
+        size: Number(size),
+        leadId: Number(id),
+        workspaceId: req.workspaceId
+      }
+    });
+
+    res.status(201).json(doc);
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao adicionar documento" });
+  }
+};
+
+export const deleteLeadDocument = async (req, res) => {
+  try {
+    const { docId } = req.params;
+    await prisma.leadDocument.delete({ where: { id: Number(docId) } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao remover documento" });
+  }
 };
 
 export const updateLead = async (req, res) => {
@@ -113,21 +160,22 @@ export const updateLead = async (req, res) => {
       value: value !== undefined ? Number(value) : undefined,
       funnelId: req.body.funnelId ? Number(req.body.funnelId) : undefined,
       stageId: req.body.stageId ? Number(req.body.stageId) : undefined,
-      nextFollowUpDate: req.body.nextFollowUpDate
-        ? new Date(req.body.nextFollowUpDate)
+      nextFollowUpDate: req.body.nextFollowUpDate !== undefined
+        ? (req.body.nextFollowUpDate === null ? null : new Date(req.body.nextFollowUpDate))
         : undefined,
-      reminderDate: req.body.reminderDate
-        ? new Date(req.body.reminderDate)
+      reminderDate: req.body.reminderDate !== undefined
+        ? (req.body.reminderDate === null ? null : new Date(req.body.reminderDate))
         : undefined,
-      followUpAction: req.body.followUpAction,
-      followUpConfig: req.body.followUpConfig,
+      followUpAction: req.body.followUpAction !== undefined ? req.body.followUpAction : undefined,
+      followUpConfig: req.body.followUpConfig !== undefined ? req.body.followUpConfig : undefined,
       followUpTriggered:
-        req.body.nextFollowUpDate !== undefined ? false : undefined, // Reset if changing date
+        req.body.followUpTriggered !== undefined 
+          ? req.body.followUpTriggered 
+          : (req.body.nextFollowUpDate !== undefined ? false : undefined),
       reminderTriggered:
-        req.body.reminderDate !== undefined ||
-        req.body.nextFollowUpDate !== undefined
-          ? false
-          : undefined,
+        req.body.reminderTriggered !== undefined
+          ? req.body.reminderTriggered
+          : (req.body.reminderDate !== undefined || req.body.nextFollowUpDate !== undefined ? false : undefined),
     },
   });
 
@@ -164,4 +212,60 @@ export const deleteLead = async (req, res) => {
   });
 
   res.json({ success: true });
+};
+
+export const bulkCreateLeads = async (req, res) => {
+  try {
+    const { leads } = req.body;
+
+    if (!req.workspaceId)
+      return res.status(400).json({ error: "Workspace não identificado" });
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ error: "Lista de leads inválida" });
+    }
+
+    const createdLeads = [];
+    
+    for (const leadData of leads) {
+      const { name, email, phone, tags, value, status, source, customFields, funnelId, stageId } = leadData;
+      
+      if (!name) continue;
+
+      const lead = await prisma.lead.create({
+        data: {
+          name,
+          email: email || null,
+          phone: phone || null,
+          value: value ? Number(value) : 0,
+          status: status || "new",
+          source: source || "manual_import",
+          tags: tags || [],
+          ownerId: req.user.id,
+          workspaceId: req.workspaceId,
+          customFields: customFields || {},
+          funnelId: funnelId ? Number(funnelId) : null,
+          stageId: stageId ? Number(stageId) : null,
+        },
+      });
+
+      try {
+        await executeAutomations(req.workspaceId, "LEAD_CREATED", lead);
+      } catch (automationErr) {
+        console.warn("Bulk Automation failed for lead:", lead.id, automationErr.message);
+      }
+
+      createdLeads.push(lead);
+    }
+
+    await logger.info("LEAD", `Importação em massa concluída: ${createdLeads.length} leads importados`, {
+      workspaceId: req.workspaceId,
+      userId: req.user.id,
+      data: { count: createdLeads.length },
+    });
+
+    res.json({ success: true, count: createdLeads.length, leads: createdLeads });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

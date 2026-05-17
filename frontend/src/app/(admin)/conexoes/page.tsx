@@ -19,6 +19,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useSystemConfig } from "@/app/api/userProvider";
 
 interface Connection {
   id: number;
@@ -72,8 +73,8 @@ const integrations = [
     name: "WhatsApp",
     description: "Conecte seu WhatsApp via QR Code",
     icon: Smartphone,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-100",
+    color: "text-sky-600",
+    bgColor: "bg-sky-100",
     provider: "evolution",
     metrics: {
       leads: 0,
@@ -94,6 +95,7 @@ const integrations = [
 ];
 
 export default function Conexoes() {
+  const systemConfig = useSystemConfig();
   const [selectedIntegration, setSelectedIntegration] = useState<{ provider: string; name: string } | null>(null);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -105,6 +107,13 @@ export default function Conexoes() {
   
   // New State for QR Code
   const [qrCode, setQrCode] = useState<string | null>(null);
+
+  const activeIntegrations = integrations.filter(item => {
+    if (item.provider === 'evolution' && systemConfig?.modules?.whatsapp === false) return false;
+    if (item.provider === 'facebook' && systemConfig?.modules?.meta === false) return false;
+    if (item.provider === 'google' && systemConfig?.modules?.googleAds === false) return false;
+    return true;
+  });
 
   const handleConfigureIntegration = (integration: { provider: string; name: string }) => {
     setSelectedIntegration(integration);
@@ -234,7 +243,7 @@ export default function Conexoes() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {integrations.map((integration) => {
+        {activeIntegrations.map((integration) => {
           const Icon = integration.icon;
           
           const realConnection = connections.find((c) => 

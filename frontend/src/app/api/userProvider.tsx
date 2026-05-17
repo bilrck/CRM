@@ -11,6 +11,7 @@ interface UserContextType {
   updateUser: (newData: any) => void;
   refreshUser: () => Promise<void>;
   isLoading: boolean;
+  systemConfig: any;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -19,6 +20,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined);
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<any>(null);
+  const [systemConfig, setSystemConfig] = useState<any>(null);
 
   const setWorkspaceCookie = (id: number) => {
     document.cookie = `workspaceId=${id}; path=/; max-age=604800; SameSite=Lax`;
@@ -55,6 +57,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           return;
       }
 
+      // 🔥 Redirect to subscription page if license is expired
+      if (userData.subscriptionStatus === "EXPIRED" && !isAuthPage && !window.location.pathname.includes('/assinatura')) {
+          window.location.href = '/assinatura';
+          return;
+      }
+
       const resWorkspaces = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/workspace/list`, { credentials: "include" });
       if (resWorkspaces.ok) {
          const workspaceList = await resWorkspaces.json();
@@ -78,6 +86,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               setWorkspaceCookie(active.id);
            }
          }
+      }
+
+      // Fetch global system config
+      try {
+        const resConfig = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/system-config`, { credentials: "include" });
+        if (resConfig.ok) {
+          const configData = await resConfig.json();
+          setSystemConfig(configData);
+        }
+      } catch (configErr) {
+        console.error("Failed to load system config:", configErr);
       }
     } catch (err) {
       console.error("UserProvider error:", err);
@@ -117,7 +136,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       switchWorkspace, 
       updateUser, 
       refreshUser,
-      isLoading: user === undefined 
+      isLoading: user === undefined,
+      systemConfig
     }}>
       {children}
     </UserContext.Provider>
@@ -142,4 +162,9 @@ export function useWorkspace() {
 export function useUserLoaded() {
   const user = useUser();
   return user !== undefined; // true quando carregado
+}
+
+export function useSystemConfig() {
+  const context = useContext(UserContext);
+  return context?.systemConfig || { systemName: "Rastreia.ai", modules: { whatsapp: true, meta: true, googleAds: true } };
 }

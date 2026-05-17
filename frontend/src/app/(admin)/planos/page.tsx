@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Check, Sparkles, ShieldCheck, Zap, Star } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Plan {
     id: number;
@@ -24,6 +32,10 @@ export default function PlansPage() {
     const user = useUser();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
+    const [buyingPlanId, setBuyingPlanId] = useState<number | null>(null);
+    const [isMockDialogOpen, setIsMockDialogOpen] = useState(false);
+    const [selectedMockPlan, setSelectedMockPlan] = useState<Plan | null>(null);
+    const [activatingMock, setActivatingMock] = useState(false);
 
     useEffect(() => {
         const fetchPlans = async () => {
@@ -39,9 +51,61 @@ export default function PlansPage() {
         fetchPlans();
     }, []);
 
-    const handleBuy = (plan: Plan) => {
-        toast.info(`Você escolheu o plano ${plan.name}. Redirecionando para pagamento...`);
-        // Here you would integrate with Stripe/MercadoPago or show bank details
+    const handleBuy = async (plan: Plan) => {
+        try {
+            setBuyingPlanId(plan.id);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/plans/${plan.id}/checkout`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include"
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok) {
+                if (data.isMock) {
+                    setSelectedMockPlan(plan);
+                    setIsMockDialogOpen(true);
+                } else if (data.url) {
+                    toast.info(`Redirecionando para o gateway de pagamento (${data.provider === 'STRIPE' ? 'Stripe' : 'Mercado Pago'})...`);
+                    window.location.href = data.url;
+                } else {
+                    toast.error("Resposta inválida do servidor");
+                }
+            } else {
+                toast.error(data.error || "Erro ao iniciar processo de pagamento");
+            }
+        } catch (error) {
+            toast.error("Erro ao conectar com o servidor");
+        } finally {
+            setBuyingPlanId(null);
+        }
+    };
+
+    const handleConfirmMockPayment = async () => {
+        if (!selectedMockPlan) return;
+        try {
+            setActivatingMock(true);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/plans/${selectedMockPlan.id}/activate-mock`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include"
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Pagamento Simulado Aprovado! Plano ativo com sucesso!");
+                setIsMockDialogOpen(false);
+                setTimeout(() => {
+                    window.location.href = "/dashboard";
+                }, 1500);
+            } else {
+                toast.error(data.error || "Erro ao ativar plano simulado");
+            }
+        } catch (error) {
+            toast.error("Erro na ativação do plano");
+        } finally {
+            setActivatingMock(false);
+        }
     };
 
     if (loading) return (
@@ -100,7 +164,8 @@ export default function PlansPage() {
                                         </span>
                                     </div>
                                     <p className="text-sm text-muted-foreground mt-2">
-                                        Validade de {plan.daysValid} dias
+                                        Validade de {plan.daysValid} dias <br/> 
+                                        <span className="text-xs font-bold text-primary">{plan.isSubscription ? "Renovação Automática" : "Pagamento Único"}</span>
                                     </p>
                                 </div>
 
@@ -130,8 +195,9 @@ export default function PlansPage() {
                                     }`}
                                     variant={isPopular ? 'default' : 'outline'}
                                     onClick={() => handleBuy(plan)}
+                                    disabled={buyingPlanId !== null}
                                 >
-                                    Começar Agora
+                                    {buyingPlanId === plan.id ? "Redirecionando..." : "Começar Agora"}
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -153,6 +219,53 @@ export default function PlansPage() {
                     Falar com um especialista →
                 </Button>
             </div>
+
+            {/* Mock Checkout Sandbox Dialog */}
+            <Dialog open={isMockDialogOpen} onOpenChange={setIsMockDialogOpen}>
+                <DialogContent className="sm:max-w-md rounded-3xl p-6">
+                    <DialogHeader className="text-center space-y-3">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center">
+                            <Sparkles className="w-6 h-6 text-amber-500 animate-pulse" />
+                        </div>
+                        <DialogTitle className="text-xl font-black text-slate-800">
+                            Ambiente de Sandbox / Testes
+                        </DialogTitle>
+                        <DialogDescription className="text-sm font-medium text-slate-500">
+                            Detectamos que o sistema está em modo sandbox ou não configurado para gateways de produção.
+                            Você pode simular o pagamento e ativar seu plano de testes imediatamente!
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedMockPlan && (
+                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 my-2 text-center">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">Plano Selecionado</span>
+                            <span className="text-lg font-black text-slate-800 block mt-1">{selectedMockPlan.name}</span>
+                            <span className="text-2xl font-black text-blue-600 block mt-2">
+                                R$ {Number(selectedMockPlan.price).toFixed(2)}
+                            </span>
+                            <span className="text-xs font-medium text-slate-400 block mt-1">Validade: {selectedMockPlan.daysValid} dias</span>
+                        </div>
+                    )}
+
+                    <DialogFooter className="flex sm:justify-between gap-3 mt-4">
+                        <Button 
+                            variant="ghost" 
+                            className="rounded-xl font-bold py-6 px-6 shrink-0 text-slate-500"
+                            onClick={() => setIsMockDialogOpen(false)}
+                            disabled={activatingMock}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button 
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black py-6 px-8 flex-grow shadow-lg shadow-emerald-100"
+                            onClick={handleConfirmMockPayment}
+                            disabled={activatingMock}
+                        >
+                            {activatingMock ? "Ativando..." : "Simular Pagamento & Ativar! ✓"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

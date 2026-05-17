@@ -19,7 +19,9 @@ import {
   Sparkles,
   LogOut,
   Building,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle,
+  Cpu
 } from "lucide-react";
 
 import Link from "next/link";
@@ -47,7 +49,7 @@ import {
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 
-import { useUser, useWorkspace } from "@/app/api/userProvider";
+import { useUser, useWorkspace, useSystemConfig } from "@/app/api/userProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Menu Groups for better Organization
@@ -78,6 +80,7 @@ const GROUPS: MenuGroup[] = [
     items: [
       { title: "Leads", url: "/leads", icon: UsersRound },
       { title: "Funil de Vendas", url: "/funil", icon: Filter },
+      { title: "Tarefas", url: "/tarefas", icon: CheckCircle },
       { title: "Clientes", url: "/clientes", icon: Briefcase, managerOnly: true },
       { title: "Campos Personalizados", url: "/vendas/campos-personalizados", icon: Activity, managerOnly: true },
     ]
@@ -103,6 +106,7 @@ const GROUPS: MenuGroup[] = [
       { title: "Equipe", url: "/equipe", icon: Users },
       { title: "Configuração API", url: "/configuracoes/api", icon: Settings },
       { title: "Gestão de Licenças", url: "/admin/licencas", icon: ShieldCheck, adminOnly: true },
+      { title: "Gestão do Sistema", url: "/admin/sistema", icon: Cpu, adminOnly: true },
       { title: "Logs do Sistema", url: "/admin/logs", icon: Terminal, adminOnly: true },
     ]
   }
@@ -111,6 +115,7 @@ const GROUPS: MenuGroup[] = [
 export function AppSidebar() {
   const user = useUser();
   const { workspaces, currentWorkspace, switchWorkspace } = useWorkspace();
+  const systemConfig = useSystemConfig();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -142,7 +147,7 @@ export function AppSidebar() {
             <Sparkles className="size-4 text-primary-foreground" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">Rastreia.ai</h1>
+            <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">{systemConfig?.systemName || "Rastreia.ai"}</h1>
             <p className="text-[10px] text-sidebar-primary uppercase tracking-widest font-semibold">Inteligência CRM</p>
           </div>
         </div>
@@ -196,6 +201,10 @@ export function AppSidebar() {
             // Check Admin/Manager roles
             if (item.adminOnly && user?.role !== "ADMIN") return false;
             if (item.managerOnly && !["MANAGER", "ADMIN"].includes(user?.role)) return false;
+
+            // Check modules
+            if (item.url === "/whatsapp" && systemConfig?.modules?.whatsapp === false) return false;
+            if (item.url === "/rastreamento" && systemConfig?.modules?.googleAds === false) return false;
 
             // Check Subscription for non-admins
             if (user?.role !== "ADMIN") {

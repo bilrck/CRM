@@ -12,6 +12,7 @@ import { socket } from "@/lib/socket";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/app/api/userProvider";
 
 interface Notification {
   id: number;
@@ -25,6 +26,7 @@ interface Notification {
 export function Notifications() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const { currentWorkspace } = useWorkspace();
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -62,6 +64,13 @@ export function Notifications() {
             socket.off("message:new", onMessageNew);
         };
     }, [fetchNotifications]);
+
+    useEffect(() => {
+        if (currentWorkspace?.id) {
+            socket.emit("join:workspace", currentWorkspace.id);
+        }
+    }, [currentWorkspace?.id]);
+
 
     const markAllAsRead = async () => {
         try {

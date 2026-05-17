@@ -1,12 +1,12 @@
+import cron from "node-cron";
 import prisma from "../config/prisma.js";
 import { sendMessage } from "./evolution.service.js";
 import { createNotification } from "../controllers/notifications.controller.js";
 
 export const startBillingWorker = () => {
-    console.log("Billing reminder worker started");
+    console.log("Billing reminder worker started (hourly)");
 
-    // Rodar a cada 1 hora (ou intervalo desejado)
-    setInterval(async () => {
+    cron.schedule("0 * * * *", async () => {
         try {
             const now = new Date();
 
@@ -52,7 +52,7 @@ export const startBillingWorker = () => {
                     if ((config.channel === "whatsapp" || config.channel === "both") && user.phone) {
                         // Buscar uma conexão ativa para enviar
                         const connection = await prisma.connection.findFirst({
-                            where: { userId: user.id, status: "CONNECTED" }
+                            where: { userId: user.id, status: "connected" }
                         });
 
                         if (connection) {
@@ -80,7 +80,7 @@ export const startBillingWorker = () => {
         } catch (error) {
             console.error("Erro no Billing Worker:", error);
         }
-    }, 3600000); // 1 hora
+    });
 };
 
 function isDifferentDay(d1, d2) {

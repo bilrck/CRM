@@ -166,16 +166,16 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center">
               <MessageSquare className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-xl text-gray-900">WhatsApp CRM</h1>
+              <h1 className="text-xl text-gray-900 font-bold">WhatsApp CRM</h1>
               <p className="text-xs text-gray-600">Rastreamento & Vendas</p>
             </div>
           </div>
@@ -183,7 +183,7 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
             <Button variant="outline">
               <Link href="/login">Entrar</Link>
             </Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               <Link href="/register">Cadastre-se</Link>
             </Button>
           </div>
@@ -192,23 +192,23 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
 
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
-        <Badge className="mb-6 bg-emerald-100 text-emerald-700 px-4 py-2">
+        <Badge className="mb-6 bg-blue-100 text-blue-700 px-4 py-2 border-blue-200">
           <Zap size={14} className="mr-2" />
           Plataforma Completa de CRM
         </Badge>
-        <h2 className="text-5xl md:text-6xl text-gray-900 mb-6 max-w-4xl mx-auto leading-tight">
+        <h2 className="text-5xl md:text-6xl text-gray-900 mb-6 max-w-4xl mx-auto leading-tight font-black">
           Transforme Leads em Vendas com o CRM Mais Completo
         </h2>
-        <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+        <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto font-medium">
           Gerencie anúncios, rastreie links, controle finanças e converta mais com WhatsApp. 
           Tudo em uma única plataforma intuitiva e poderosa.
         </p>
         <div className="flex gap-4 justify-center">
-          <Button onClick={onRegister} size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-8">
+          <Button onClick={onRegister} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 rounded-2xl shadow-xl shadow-blue-200 transition-all hover:scale-105">
             Começar Agora Grátis
             <ArrowRight className="ml-2" size={20} />
           </Button>
-          <Button onClick={onLogin} size="lg" variant="outline" className="text-lg px-8">
+          <Button onClick={onLogin} size="lg" variant="outline" className="text-lg px-8 rounded-2xl border-2">
             Ver Demo
           </Button>
         </div>
@@ -221,12 +221,12 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <div key={index} className="text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl mb-3">
-                  <Icon className="text-emerald-600" size={24} />
+              <div key={index} className="text-center group">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl mb-3 group-hover:scale-110 transition-transform">
+                  <Icon className="text-blue-600" size={24} />
                 </div>
-                <div className="text-3xl text-gray-900 mb-1">{stat.value}</div>
-                <div className="text-sm text-gray-600">{stat.label}</div>
+                <div className="text-3xl font-black text-gray-900 mb-1">{stat.value}</div>
+                <div className="text-sm text-gray-600 font-medium">{stat.label}</div>
               </div>
             );
           })}
@@ -236,10 +236,10 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
       {/* Features Section */}
       <section className="max-w-7xl mx-auto px-6 py-20">
         <div className="text-center mb-16">
-          <Badge className="mb-4 bg-blue-100 text-blue-700 px-4 py-2">
+          <Badge className="mb-4 bg-indigo-100 text-indigo-700 px-4 py-2 border-indigo-200">
             Funcionalidades
           </Badge>
-          <h3 className="text-4xl text-gray-900 mb-4">
+          <h3 className="text-4xl font-black text-gray-900 mb-4">
             Tudo que você precisa em um só lugar
           </h3>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -251,13 +251,13 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <Card key={index} className="hover:shadow-xl transition-all hover:-translate-y-1 border-2 hover:border-emerald-500">
+              <Card key={index} className="hover:shadow-2xl transition-all hover:-translate-y-2 border-2 hover:border-blue-500 rounded-3xl overflow-hidden group">
                 <CardHeader>
-                  <div className={`w-14 h-14 ${feature.bgColor} rounded-xl flex items-center justify-center mb-4`}>
+                  <div className={`w-14 h-14 ${feature.bgColor} rounded-2xl flex items-center justify-center mb-4 group-hover:rotate-6 transition-transform`}>
                     <Icon className={feature.color} size={28} />
                   </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                  <CardDescription className="text-sm">
+                  <CardTitle className="text-lg font-bold">{feature.title}</CardTitle>
+                  <CardDescription className="text-sm font-medium text-gray-500">
                     {feature.description}
                   </CardDescription>
                 </CardHeader>
@@ -268,71 +268,77 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
       </section>
 
       {/* Benefits Section */}
-      <section className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white py-20">
+      <section className="bg-gradient-to-br from-blue-900 to-indigo-950 text-white py-24 rounded-[3rem] mx-4 shadow-2xl">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div>
-              <Badge className="mb-4 bg-emerald-700 text-emerald-100 px-4 py-2 border-emerald-600">
+              <Badge className="mb-4 bg-blue-700 text-blue-100 px-4 py-2 border-blue-600">
                 Por que escolher?
               </Badge>
-              <h3 className="text-4xl mb-6">
+              <h3 className="text-4xl font-black mb-6">
                 Especializado em Vendas por WhatsApp
               </h3>
-              <p className="text-emerald-100 text-lg mb-8">
+              <p className="text-blue-100 text-lg mb-8 font-medium">
                 Desenvolvido especificamente para empresas que vendem por WhatsApp e anúncios. 
                 Não é apenas um CRM genérico, é uma solução completa para seu negócio digital.
               </p>
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-400 flex-shrink-0 mt-1" size={24} />
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-500/20 p-2 rounded-lg">
+                    <CheckCircle2 className="text-blue-400 flex-shrink-0" size={24} />
+                  </div>
                   <div>
-                    <div className="text-lg mb-1">Rastreamento Inteligente</div>
-                    <div className="text-emerald-200">Saiba de onde vem cada lead e quanto custa cada conversão</div>
+                    <div className="text-xl font-bold mb-1 text-white">Rastreamento Inteligente</div>
+                    <div className="text-blue-200/80 font-medium">Saiba de onde vem cada lead e quanto custa cada conversão</div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-400 flex-shrink-0 mt-1" size={24} />
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-500/20 p-2 rounded-lg">
+                    <CheckCircle2 className="text-blue-400 flex-shrink-0" size={24} />
+                  </div>
                   <div>
-                    <div className="text-lg mb-1">Automação Poderosa</div>
-                    <div className="text-emerald-200">Integre com suas campanhas e importe leads automaticamente</div>
+                    <div className="text-xl font-bold mb-1 text-white">Automação Poderosa</div>
+                    <div className="text-blue-200/80 font-medium">Integre com suas campanhas e importe leads automaticamente</div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-400 flex-shrink-0 mt-1" size={24} />
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-500/20 p-2 rounded-lg">
+                    <CheckCircle2 className="text-blue-400 flex-shrink-0" size={24} />
+                  </div>
                   <div>
-                    <div className="text-lg mb-1">Controle Financeiro Total</div>
-                    <div className="text-emerald-200">Acompanhe investimento em anúncios vs. retorno em vendas</div>
+                    <div className="text-xl font-bold mb-1 text-white">Controle Financeiro Total</div>
+                    <div className="text-blue-200/80 font-medium">Acompanhe investimento em anúncios vs. retorno em vendas</div>
                   </div>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-6">
-              <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-                <CardContent className="pt-6 text-center">
-                  <TrendingUp className="text-emerald-400 mx-auto mb-3" size={40} />
-                  <div className="text-3xl text-white mb-2">+180%</div>
-                  <div className="text-emerald-200">Aumento em Conversões</div>
+              <Card className="bg-white/5 border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default rounded-3xl">
+                <CardContent className="pt-8 text-center">
+                  <TrendingUp className="text-blue-400 mx-auto mb-4" size={48} />
+                  <div className="text-4xl font-black text-white mb-2">+180%</div>
+                  <div className="text-blue-200 font-bold uppercase tracking-wider text-[10px]">Aumento em Conversões</div>
                 </CardContent>
               </Card>
-              <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-                <CardContent className="pt-6 text-center">
-                  <Clock className="text-emerald-400 mx-auto mb-3" size={40} />
-                  <div className="text-3xl text-white mb-2">-70%</div>
-                  <div className="text-emerald-200">Tempo de Resposta</div>
+              <Card className="bg-white/5 border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default rounded-3xl">
+                <CardContent className="pt-8 text-center">
+                  <Clock className="text-blue-400 mx-auto mb-4" size={48} />
+                  <div className="text-4xl font-black text-white mb-2">-70%</div>
+                  <div className="text-blue-200 font-bold uppercase tracking-wider text-[10px]">Tempo de Resposta</div>
                 </CardContent>
               </Card>
-              <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-                <CardContent className="pt-6 text-center">
-                  <Target className="text-emerald-400 mx-auto mb-3" size={40} />
-                  <div className="text-3xl text-white mb-2">+250%</div>
-                  <div className="text-emerald-200">ROI Médio</div>
+              <Card className="bg-white/5 border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default rounded-3xl">
+                <CardContent className="pt-8 text-center">
+                  <Target className="text-blue-400 mx-auto mb-4" size={48} />
+                  <div className="text-4xl font-black text-white mb-2">+250%</div>
+                  <div className="text-blue-200 font-bold uppercase tracking-wider text-[10px]">ROI Médio</div>
                 </CardContent>
               </Card>
-              <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-                <CardContent className="pt-6 text-center">
-                  <Shield className="text-emerald-400 mx-auto mb-3" size={40} />
-                  <div className="text-3xl text-white mb-2">100%</div>
-                  <div className="text-emerald-200">Seguro e Confiável</div>
+              <Card className="bg-white/5 border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default rounded-3xl">
+                <CardContent className="pt-8 text-center">
+                  <Shield className="text-blue-400 mx-auto mb-4" size={48} />
+                  <div className="text-4xl font-black text-white mb-2">100%</div>
+                  <div className="text-blue-200 font-bold uppercase tracking-wider text-[10px]">Seguro e Confiável</div>
                 </CardContent>
               </Card>
             </div>
@@ -346,24 +352,29 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
           <Badge className="mb-4 bg-purple-100 text-purple-700 px-4 py-2">
             Depoimentos
           </Badge>
-          <h3 className="text-4xl text-gray-900 mb-4">
+          <h3 className="text-4xl font-black text-gray-900 mb-4">
             Mais de 1.000 empresas confiam em nós
           </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {testimonials.map((testimonial, index) => (
-            <Card key={index} className="border-2">
-              <CardContent className="pt-6">
-                <div className="flex gap-1 mb-4">
+            <Card key={index} className="border-2 rounded-3xl hover:border-blue-200 transition-colors">
+              <CardContent className="pt-8">
+                <div className="flex gap-1 mb-6">
                   {[...Array(testimonial.rating)].map((_, i) => (
                     <Star key={i} className="text-amber-400 fill-amber-400" size={18} />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-6 italic">"{testimonial.content}"</p>
-                <div>
-                  <div className="text-gray-900">{testimonial.name}</div>
-                  <div className="text-sm text-gray-600">{testimonial.role}</div>
+                <p className="text-gray-700 mb-8 italic font-medium leading-relaxed">"{testimonial.content}"</p>
+                <div className="flex items-center gap-3 border-t pt-6">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-black text-blue-600">
+                    {testimonial.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="text-gray-900 font-black">{testimonial.name}</div>
+                    <div className="text-sm text-gray-500 font-medium">{testimonial.role}</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -372,16 +383,16 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
       </section>
 
       {/* Pricing */}
-      <section className="bg-gray-50 py-20">
+      <section className="bg-slate-50 py-24">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <Badge className="mb-4 bg-emerald-100 text-emerald-700 px-4 py-2">
+          <div className="text-center mb-20">
+            <Badge className="mb-4 bg-blue-100 text-blue-700 px-4 py-2 border-blue-200">
               Planos
             </Badge>
-            <h3 className="text-4xl text-gray-900 mb-4">
+            <h3 className="text-4xl font-black text-gray-900 mb-4">
               Escolha o plano ideal para seu negócio
             </h3>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 font-medium">
               Todos os planos com 14 dias grátis. Sem compromisso.
             </p>
           </div>
@@ -390,33 +401,33 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
             {pricingPlans.map((plan, index) => (
               <Card 
                 key={index} 
-                className={`${plan.highlighted ? 'border-4 border-emerald-500 shadow-2xl scale-105' : 'border-2'}`}
+                className={`${plan.highlighted ? 'border-4 border-blue-500 shadow-2xl scale-105 z-10' : 'border-2'} rounded-[2.5rem] bg-white transition-transform hover:scale-[1.02]`}
               >
-                <CardHeader>
+                <CardHeader className="p-8">
                   {plan.highlighted && (
-                    <Badge className="mb-2 bg-emerald-600 text-white w-fit">
+                    <Badge className="mb-4 bg-blue-600 text-white w-fit px-4 py-1">
                       Mais Popular
                     </Badge>
                   )}
-                  <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                  <div className="pt-4">
-                    <span className="text-4xl text-gray-900">{plan.price}</span>
-                    {plan.period && <span className="text-gray-600">{plan.period}</span>}
+                  <CardTitle className="text-2xl font-black mb-2">{plan.name}</CardTitle>
+                  <CardDescription className="font-medium">{plan.description}</CardDescription>
+                  <div className="pt-6">
+                    <span className="text-5xl font-black text-gray-900">{plan.price}</span>
+                    {plan.period && <span className="text-gray-500 font-bold ml-1">{plan.period}</span>}
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3 mb-6">
+                <CardContent className="p-8 pt-0">
+                  <ul className="space-y-4 mb-10">
                     {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <CheckCircle2 className="text-emerald-600 flex-shrink-0" size={18} />
-                        <span className="text-gray-700">{feature}</span>
+                      <li key={i} className="flex items-center gap-3">
+                        <CheckCircle2 className="text-blue-600 flex-shrink-0" size={20} />
+                        <span className="text-gray-700 font-medium">{feature}</span>
                       </li>
                     ))}
                   </ul>
                   <Button 
                     onClick={onRegister}
-                    className={`w-full ${plan.highlighted ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                    className={`w-full py-7 text-lg font-black rounded-2xl transition-all ${plan.highlighted ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-100' : ''}`}
                     variant={plan.highlighted ? 'default' : 'outline'}
                   >
                     Começar Agora
@@ -429,20 +440,23 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
       </section>
 
       {/* CTA Final */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
-        <Card className="bg-gradient-to-br from-emerald-600 to-emerald-800 border-0 text-white">
-          <CardContent className="py-16 text-center">
-            <h3 className="text-4xl mb-4">
+      <section className="max-w-7xl mx-auto px-6 py-24">
+        <Card className="bg-gradient-to-br from-blue-600 to-indigo-800 border-0 text-white rounded-[3rem] shadow-2xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full translate-y-32 -translate-x-32 blur-3xl" />
+          
+          <CardContent className="py-20 text-center relative z-10">
+            <h3 className="text-5xl font-black mb-6">
               Pronto para Transformar suas Vendas?
             </h3>
-            <p className="text-xl text-emerald-100 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-blue-50 mb-10 max-w-2xl mx-auto font-medium">
               Junte-se a milhares de empresas que já aumentaram suas vendas com nosso CRM especializado
             </p>
-            <Button onClick={onRegister} size="lg" className="bg-white text-emerald-600 hover:bg-gray-100 text-lg px-8">
+            <Button onClick={onRegister} size="lg" className="bg-white text-blue-700 hover:bg-blue-50 text-xl px-12 py-8 rounded-2xl font-black shadow-2xl transition-all hover:scale-105">
               Começar Grátis Agora
-              <ArrowRight className="ml-2" size={20} />
+              <ArrowRight className="ml-2" size={24} />
             </Button>
-            <p className="text-emerald-100 text-sm mt-4">
+            <p className="text-blue-100/70 text-sm mt-8 font-bold">
               Teste grátis por 14 dias · Sem cartão de crédito · Suporte incluído
             </p>
           </CardContent>
@@ -450,52 +464,52 @@ export default function Home({ onLogin, onRegister }: HomeProps) {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-300 py-12">
+      <footer className="bg-slate-950 text-gray-300 py-16">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-12">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
-                  <MessageSquare className="text-white" size={24} />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <MessageSquare className="text-white" size={28} />
                 </div>
-                <span className="text-white text-lg">WhatsApp CRM</span>
+                <span className="text-white text-2xl font-black tracking-tight">WhatsApp CRM</span>
               </div>
-              <p className="text-sm text-gray-400 mb-4">
-                O CRM mais completo para vendas por WhatsApp e gerenciamento de anúncios.
+              <p className="text-base text-gray-400 mb-6 leading-relaxed max-w-sm">
+                O CRM mais completo para vendas por WhatsApp e gerenciamento de anúncios. Aumente sua conversão com inteligência.
               </p>
-              <div className="inline-flex items-center gap-2 bg-gray-800 px-3 py-1.5 rounded-lg text-xs text-gray-300 border border-gray-700">
-                <Shield size={14} className="text-emerald-500" />
-                Em conformidade com a LGPD
+              <div className="inline-flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl text-xs text-blue-200 border border-white/10 backdrop-blur-sm">
+                <Shield size={14} className="text-blue-400" />
+                Protegido por Criptografia de Ponta a Ponta
               </div>
             </div>
             <div>
-              <h4 className="text-white mb-4">Produto</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-emerald-400">Funcionalidades</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Integrações</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Preços</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Atualizações</a></li>
+              <h4 className="text-white font-black mb-6 uppercase tracking-widest text-xs">Produto</h4>
+              <ul className="space-y-4 text-sm font-medium">
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Funcionalidades</a></li>
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Integrações</a></li>
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Preços</a></li>
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Atualizações</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-white mb-4">Suporte</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-emerald-400">Central de Ajuda</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Documentação</a></li>
-                <li><a href="#" className="hover:text-emerald-400">Status</a></li>
-                <li><a href="#" className="hover:text-emerald-400">API</a></li>
+              <h4 className="text-white font-black mb-6 uppercase tracking-widest text-xs">Suporte</h4>
+              <ul className="space-y-4 text-sm font-medium">
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Central de Ajuda</a></li>
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Documentação</a></li>
+                <li><a href="#" className="hover:text-blue-400 transition-colors">Status</a></li>
+                <li><a href="#" className="hover:text-blue-400 transition-colors">API</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-white mb-4">Legal (LGPD)</h4>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/privacidade" className="hover:text-emerald-400 flex items-center gap-2"><Shield size={12}/> Política de Privacidade</Link></li>
-                <li><Link href="/termos" className="hover:text-emerald-400">Termos de Uso</Link></li>
+              <h4 className="text-white font-black mb-6 uppercase tracking-widest text-xs">Legal</h4>
+              <ul className="space-y-4 text-sm font-medium">
+                <li><Link href="/privacidade" className="hover:text-blue-400 transition-colors flex items-center gap-2">Política de Privacidade</Link></li>
+                <li><Link href="/termos" className="hover:text-blue-400 transition-colors">Termos de Uso</Link></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-sm">
-            <p>&copy; 2026 Rastreia AI CRM. Todos os direitos reservados.</p>
+          <div className="border-t border-white/5 pt-12 text-center text-sm font-medium text-gray-500">
+            <p>&copy; 2026 Rastreia AI CRM. Todos os direitos reservados. Orgulhosamente feito para empreendedores.</p>
           </div>
         </div>
       </footer>

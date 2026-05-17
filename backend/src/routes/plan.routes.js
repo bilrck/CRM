@@ -3,7 +3,9 @@ import {
     listPlans, 
     createPlan, 
     updatePlan, 
-    deletePlan 
+    deletePlan,
+    checkoutPlan,
+    activateMockPlan
 } from "../controllers/plan.controller.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 
@@ -11,6 +13,10 @@ const router = Router();
 
 // Public/Auth list
 router.get("/", authMiddleware, listPlans);
+
+// Checkout & Purchase
+router.post("/:id/checkout", authMiddleware, checkoutPlan);
+router.post("/:id/activate-mock", authMiddleware, activateMockPlan);
 
 // Admin only
 router.post("/", authMiddleware, createPlan);

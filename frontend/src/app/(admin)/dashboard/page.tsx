@@ -75,10 +75,20 @@ export default function Dashboard() {
           headers,
           credentials: 'include' 
         });
+        
         const data = await res.json();
+        
+        if (!res.ok) {
+          // If the API returns an error (e.g. 403 Subscription Expired), stop loading and don't set invalid stats
+          toast.error(data.error || "Erro ao carregar dashboard");
+          setStats(null);
+          return;
+        }
+
         setStats(data);
       } catch {
         toast.error("Erro ao carregar dashboard");
+        setStats(null);
       } finally {
         setLoading(false);
       }
@@ -86,7 +96,8 @@ export default function Dashboard() {
     fetchStats();
   }, [currentWorkspace]);
 
-  if (loading || !stats) return <div className="p-8 text-muted-foreground">Carregando métricas...</div>;
+  if (loading) return <div className="p-8 text-muted-foreground">Carregando métricas...</div>;
+  if (!stats || !('totalValue' in stats)) return <div className="p-8 text-muted-foreground">Não foi possível carregar as métricas do Dashboard. Verifique sua assinatura.</div>;
 
   return (
     <div className="p-8 space-y-6">
@@ -96,12 +107,12 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-all rounded-2xl bg-card">
+        <Card className="border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-all rounded-2xl bg-card">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 font-semibold text-emerald-600">
+            <CardDescription className="flex items-center gap-2 font-semibold text-blue-600">
               <Users size={14} /> Total de Leads
             </CardDescription>
-            <CardTitle className="text-3xl text-emerald-600 font-bold">{stats.totalLeads}</CardTitle>
+            <CardTitle className="text-3xl text-blue-600 font-bold">{stats.totalLeads}</CardTitle>
           </CardHeader>
           <CardContent>
              <div className="text-xs text-muted-foreground font-medium">Desde o início</div>

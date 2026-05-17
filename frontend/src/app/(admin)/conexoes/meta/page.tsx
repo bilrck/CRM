@@ -22,6 +22,7 @@ import {
     ChevronDown
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSystemConfig } from "@/app/api/userProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,10 +42,27 @@ import {
 } from "@/components/ui/select";
 
 export default function MetaIntegrationPage() {
+    const { modules } = useSystemConfig();
     const [loading, setLoading] = useState(true);
     const [pages, setPages] = useState<any[]>([]);
     const [funnels, setFunnels] = useState<any[]>([]);
     const [selectedPage, setSelectedPage] = useState<any>(null);
+
+    if (modules.meta === false) {
+        return (
+            <div className="p-8 max-w-4xl mx-auto">
+                <Card className="border-red-200 bg-red-50">
+                    <CardContent className="flex flex-col items-center py-16 text-center">
+                        <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
+                        <h3 className="text-xl font-bold text-red-800 mb-2">Módulo Desativado</h3>
+                        <p className="text-red-700 max-w-md">
+                            O módulo de integração com a Meta Ads foi desativado pelo administrador do sistema.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
     const [selectedPageForms, setSelectedPageForms] = useState<any[]>([]);
     const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
     const [activeMappingForm, setActiveMappingForm] = useState<any>(null);

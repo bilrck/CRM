@@ -1,5 +1,6 @@
 import express from "express";
 import authMiddleware from "../middlewares/auth.middleware.js";
+import { checkModuleActive } from "../middlewares/moduleCheck.middleware.js";
 import * as metaController from "../controllers/meta.controller.js";
 
 const router = express.Router();
@@ -9,6 +10,7 @@ router.get("/oauth/callback", metaController.oauthCallback);
 
 // All other meta routes require CRM authentication
 router.use(authMiddleware);
+router.use(checkModuleActive("meta"));
 
 router.get("/oauth/url", metaController.getOAuthUrl);
 router.post("/connect", metaController.connectMeta);

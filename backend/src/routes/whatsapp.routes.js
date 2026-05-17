@@ -1,5 +1,6 @@
 import { Router } from "express";
 import authMiddleware from "../middlewares/auth.middleware.js";
+import { checkModuleActive } from "../middlewares/moduleCheck.middleware.js";
 import {
   getConversations,
   getMessages,
@@ -13,6 +14,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
+router.use(checkModuleActive("whatsapp"));
 
 router.get("/conversations", getConversations);
 router.get("/conversations/:id/messages", getMessages);

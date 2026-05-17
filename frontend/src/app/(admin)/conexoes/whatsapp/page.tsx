@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { useSystemConfig } from "@/app/api/userProvider";
 
 interface Connection {
     id: number;
@@ -32,10 +33,29 @@ interface Connection {
 }
 
 export default function WhatsappManagerPage() {
+    const { modules } = useSystemConfig();
     const [instanceName, setInstanceName] = useState("");
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [connections, setConnections] = useState<Connection[]>([]);
+
+    if (modules.whatsapp === false) {
+        return (
+            <div className="p-8 max-w-4xl mx-auto flex h-[calc(100vh-theme(spacing.16))] items-center justify-center">
+                <Card className="border-red-200 bg-red-50 p-16 text-center max-w-md w-full shadow-lg shadow-red-50">
+                    <CardContent className="flex flex-col items-center py-0">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <Smartphone className="h-8 w-8 text-red-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-red-800 mb-2">Módulo Desativado</h3>
+                        <p className="text-red-700">
+                            O módulo de gerenciamento de WhatsApp está desativado pelo administrador do sistema.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
     
     // Limits (mocked or fetched from user profile)
     // Ideally we should fetch user limits. For now we rely on backend error 403.

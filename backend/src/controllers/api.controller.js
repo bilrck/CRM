@@ -573,3 +573,49 @@ export const apiGetReports = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+// --- TASKS ---
+
+// GET /api/v1/tasks
+export const apiListTasks = async (req, res) => {
+  try {
+    const workspaceId = req.workspaceId;
+    const tasks = await prisma.task.findMany({
+      where: { workspaceId },
+      orderBy: { dueDate: "asc" },
+      include: { lead: { select: { id: true, name: true } } }
+    });
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// POST /api/v1/tasks
+export const apiCreateTask = async (req, res) => {
+  try {
+    const workspaceId = req.workspaceId;
+    const { title, description, dueDate, priority, leadId, reminderAt, reminderType } = req.body;
+
+    if (!title) return res.status(400).json({ error: "Title is required" });
+
+    const task = await prisma.task.create({
+      data: {
+        title,
+        description,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        priority: priority || "MEDIUM",
+        status: "PENDING",
+        leadId: leadId ? Number(leadId) : null,
+        reminderAt: reminderAt ? new Date(reminderAt) : null,
+        reminderType: reminderType || "SYSTEM",
+        workspaceId,
+        userId: req.user.id, // The API Key owner
+      },
+    });
+
+    res.status(201).json(task);
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};

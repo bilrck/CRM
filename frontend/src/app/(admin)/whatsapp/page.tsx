@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { socket } from "@/lib/socket";
-import { useUser } from "@/app/api/userProvider";
+import { useUser, useSystemConfig } from "@/app/api/userProvider";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -67,9 +67,26 @@ interface Funnel {
 
 export default function Whatsapp() {
     const user = useUser();
+    const { modules } = useSystemConfig();
     const [activeTab, setActiveTab] = useState("OPEN");
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedChat, setSelectedChat] = useState<Conversation | null>(null);
+
+    if (modules.whatsapp === false) {
+        return (
+            <div className="p-8 max-w-4xl mx-auto flex h-[calc(100vh-theme(spacing.16))] items-center justify-center">
+                <div className="bg-red-50 border border-red-200 rounded-3xl p-16 text-center max-w-md w-full shadow-lg shadow-red-50">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                        <Phone className="h-8 w-8 text-red-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-red-800 mb-2">Módulo Desativado</h3>
+                    <p className="text-red-700">
+                        O módulo de WhatsApp está desativado temporariamente pelo administrador do sistema.
+                    </p>
+                </div>
+            </div>
+        );
+    }
     const [messagesCache, setMessagesCache] = useState<Record<number, Message[]>>({});
     const [newMessage, setNewMessage] = useState("");
     const [filterAll, setFilterAll] = useState(true);
