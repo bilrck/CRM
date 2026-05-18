@@ -147,7 +147,7 @@ export default function LicenseManagement() {
             if (res.ok) {
                 toast.success("Plano criado!");
                 setOpenPlan(false);
-                setPlanData({ name: "", description: "", daysValid: 30, price: 0, role: "CLIENTE", features: "" });
+                setPlanData({ name: "", description: "", daysValid: 30, price: 0, role: "CLIENTE", features: "", isSubscription: false });
                 fetchData();
             }
         } catch (error) {

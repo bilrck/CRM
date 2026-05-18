@@ -152,7 +152,7 @@ export const checkoutPlan = async (req, res) => {
                 isMock: true,
                 planId: plan.id,
                 provider: paymentConfig?.provider || "MOCK",
-                message: "Ambiente de Testes / Sandbox ativo."
+                message: "Ambiente de Testes / Sandbox local ativo."
             });
         }
 
@@ -181,6 +181,7 @@ export const checkoutPlan = async (req, res) => {
                 sessionParams.append('subscription_data[metadata][userId]', userId.toString());
                 const interval = plan.daysValid >= 365 ? 'year' : 'month';
                 sessionParams.append('line_items[0][price_data][recurring][interval]', interval);
+                sessionParams.append('payment_method_types[0]', 'card');
             } else {
                 sessionParams.append('metadata[planId]', plan.id.toString());
                 sessionParams.append('metadata[userId]', userId.toString());
