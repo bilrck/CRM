@@ -63,7 +63,7 @@ export const deletePlan = async (req, res) => {
     }
 };
 
-export const activateUserPlan = async (userId, planId) => {
+export const activateUserPlan = async (userId, planId, gatewaySubscriptionId = null) => {
     const plan = await prisma.plan.findUnique({ where: { id: Number(planId) } });
     if (!plan) throw new Error("Plano não encontrado");
 
@@ -84,7 +84,8 @@ export const activateUserPlan = async (userId, planId) => {
         data: {
             subscriptionStatus: "ACTIVE",
             subscriptionExpiresAt: newExpiry,
-            billingStatus: "ativo"
+            billingStatus: "ativo",
+            gatewaySubscriptionId: gatewaySubscriptionId || undefined
         }
     });
 
@@ -297,5 +298,85 @@ export const activateMockPlan = async (req, res) => {
     } catch (error) {
         console.error("Erro Mock Activation:", error);
         res.status(500).json({ error: `Falha ao ativar plano de teste: ${error.message}` });
+    }
+};
+
+export const cancelSubscription = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+
+        if (!user) {
+            return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+
+        if (!user.gatewaySubscriptionId) {
+            // Local sandbox or no active recurring gateway subscription
+            await prisma.user.update({
+                where: { id: userId },
+                data: { 
+                    subscriptionStatus: "CANCELED", 
+                    billingStatus: "inativo"
+                }
+            });
+            return res.json({ success: true, message: "Assinatura cancelada localmente com sucesso." });
+        }
+
+        const paymentConfig = await prisma.paymentConfig.findFirst({
+            where: { isActive: true }
+        });
+
+        if (!paymentConfig || !paymentConfig.accessToken) {
+            // Fallback: If gateway config is deleted or inactive, just cancel it locally
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    subscriptionStatus: "CANCELED",
+                    billingStatus: "inativo"
+                }
+            });
+            return res.json({ success: true, message: "Assinatura cancelada localmente com sucesso (gateway indisponível)." });
+        }
+
+        const { provider, accessToken } = paymentConfig;
+
+        if (provider === "STRIPE") {
+            const resStripe = await fetch(`https://api.stripe.com/v1/subscriptions/${user.gatewaySubscriptionId}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                }
+            });
+            const dataStripe = await resStripe.json();
+            if (!resStripe.ok) {
+                console.error("Erro ao cancelar assinatura no Stripe:", dataStripe);
+            }
+        } else if (provider === "MERCADO_PAGO" || provider === "MERCADOPAGO") {
+            const resMP = await fetch(`https://api.mercadopago.com/preapproval/${user.gatewaySubscriptionId}`, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ status: "cancelled" })
+            });
+            const dataMP = await resMP.json();
+            if (!resMP.ok) {
+                console.error("Erro ao cancelar preapproval no Mercado Pago:", dataMP);
+            }
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                subscriptionStatus: "CANCELED",
+                billingStatus: "inativo",
+            }
+        });
+
+        return res.json({ success: true, message: "Assinatura cancelada com sucesso." });
+    } catch (error) {
+        console.error("Erro ao cancelar assinatura:", error);
+        return res.status(500).json({ error: `Erro interno no servidor: ${error.message}` });
     }
 };

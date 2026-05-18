@@ -2,6 +2,49 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
+if (typeof window !== "undefined") {
+  const originalFetch = window.fetch;
+  window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    let urlString = "";
+    
+    if (typeof input === "string") {
+      urlString = input;
+    } else if (input instanceof URL) {
+      urlString = input.toString();
+    } else if (input && (input as any).url) {
+      urlString = (input as any).url;
+    }
+
+    if (urlString && urlString.includes(apiUrl)) {
+      const match = document.cookie.match(new RegExp('(^| )workspaceId=([^;]+)'));
+      const workspaceId = match ? match[2] : null;
+
+      if (workspaceId) {
+        init = init || {};
+        init.headers = init.headers || {};
+
+        if (init.headers instanceof Headers) {
+          if (!init.headers.has("x-workspace-id")) {
+            init.headers.set("x-workspace-id", workspaceId);
+          }
+        } else if (Array.isArray(init.headers)) {
+          const hasHeader = init.headers.some(([key]) => key.toLowerCase() === "x-workspace-id");
+          if (!hasHeader) {
+            init.headers.push(["x-workspace-id", workspaceId]);
+          }
+        } else {
+          const keys = Object.keys(init.headers).map(k => k.toLowerCase());
+          if (!keys.includes("x-workspace-id")) {
+            (init.headers as any)["x-workspace-id"] = workspaceId;
+          }
+        }
+      }
+    }
+    return originalFetch(input, init);
+  };
+}
+
 // Context Type definition (implicitly)
 interface UserContextType {
   user: any;

@@ -25,6 +25,7 @@ model User {
   subscriptionStatus    String    @default("TRIAL") // TRIAL, ACTIVE, EXPIRED, CANCELED
   subscriptionPlan      String? // MONTHLY, QUARTERLY, ANNUAL
   subscriptionExpiresAt DateTime?
+  gatewaySubscriptionId String?
 
   // 💰 Billing & Reminders
   billingStatus         String    @default("ativo") // ativo, pendente, inativo

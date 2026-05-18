@@ -18,6 +18,7 @@ export default function SubscriptionPage() {
     const user = useUser();
     const [key, setKey] = useState("");
     const [activating, setActivating] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
     const [wantsNotification, setWantsNotification] = useState(
         user?.billingReminderConfig?.enabled ?? true
     );
@@ -47,6 +48,31 @@ export default function SubscriptionPage() {
             toast.error("Erro de conexão");
         } finally {
             setActivating(false);
+        }
+    };
+
+    const handleCancelSubscription = async () => {
+        if (!confirm("Tem certeza de que deseja cancelar sua assinatura recorrente? Você continuará tendo acesso até o final da validade atual, mas não haverá novas cobranças automáticas.")) return;
+        
+        try {
+            setCancelling(true);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/plans/cancel-subscription`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include"
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Assinatura cancelada com sucesso!");
+                window.location.reload();
+            } else {
+                toast.error(data.error || "Erro ao cancelar assinatura");
+            }
+        } catch (error) {
+            toast.error("Erro de conexão");
+        } finally {
+            setCancelling(false);
         }
     };
 
@@ -123,40 +149,90 @@ export default function SubscriptionPage() {
                     </CardContent>
                 </Card>
 
-                {/* Activation Card */}
-                <Card className="shadow-md border-border/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Key className="text-primary" />
-                            Ativar Licença
-                        </CardTitle>
-                        <CardDescription>Insira sua chave de ativação para renovar ou ativar.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Chave de Licença</Label>
-                            <Input 
-                                placeholder="EX: A1B2-C3D4-..." 
-                                className="font-mono"
-                                value={key}
-                                onChange={e => setKey(e.target.value.toUpperCase())}
-                            />
-                        </div>
-                        <Button 
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20"
-                            onClick={handleActivate}
-                            disabled={activating}
-                        >
-                            {activating ? "Ativando..." : "Ativar Sistema"}
-                        </Button>
-                    </CardContent>
-                    <CardFooter className="bg-muted/30 p-4 border-t">
-                        <div className="flex items-start gap-2 text-[10px] text-muted-foreground leading-tight">
-                            <AlertCircle className="w-3 h-3 shrink-0" />
-                            <span>A ativação é imediata. Se você já tiver um plano ativo, os dias da nova chave serão somados à sua validade atual.</span>
-                        </div>
-                    </CardFooter>
-                </Card>
+                {/* Activation Card (Only shown if plan is expired) */}
+                {isExpired && (
+                    <Card className="shadow-md border-border/50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Key className="text-primary" />
+                                Ativar Licença
+                            </CardTitle>
+                            <CardDescription>Insira sua chave de ativação para renovar ou ativar.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Chave de Licença</Label>
+                                <Input 
+                                    placeholder="EX: A1B2-C3D4-..." 
+                                    className="font-mono"
+                                    value={key}
+                                    onChange={e => setKey(e.target.value.toUpperCase())}
+                                />
+                            </div>
+                            <Button 
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                                onClick={handleActivate}
+                                disabled={activating}
+                            >
+                                {activating ? "Ativando..." : "Ativar Sistema"}
+                            </Button>
+                        </CardContent>
+                        <CardFooter className="bg-muted/30 p-4 border-t">
+                            <div className="flex items-start gap-2 text-[10px] text-muted-foreground leading-tight">
+                                <AlertCircle className="w-3 h-3 shrink-0" />
+                                <span>A ativação é imediata. Se você já tiver um plano ativo, os dias da nova chave serão somados à sua validade atual.</span>
+                            </div>
+                        </CardFooter>
+                    </Card>
+                )}
+
+                {/* Cancellation Card (Only shown if plan is active AND subscription is active) */}
+                {!isExpired && user.subscriptionStatus === "ACTIVE" && (
+                    <Card className="shadow-md border-border/50 border-destructive/20 bg-destructive/5">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-destructive">
+                                <AlertCircle className="w-5 h-5" />
+                                Cancelar Assinatura
+                            </CardTitle>
+                            <CardDescription>
+                                Cancele as futuras renovações automáticas da sua assinatura.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                Ao cancelar, você continuará tendo acesso completo aos recursos contratados até o final do período de validade (<strong>{expiryDate?.toLocaleDateString('pt-BR')}</strong>). Nenhuma cobrança futura será realizada no seu cartão.
+                            </p>
+                            <Button 
+                                variant="destructive"
+                                className="w-full font-bold shadow-lg shadow-destructive/10"
+                                onClick={handleCancelSubscription}
+                                disabled={cancelling}
+                            >
+                                {cancelling ? "Cancelando..." : "Cancelar Assinatura"}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Manual Active Card (Only shown if plan is active AND subscription is NOT recurring ACTIVE) */}
+                {!isExpired && user.subscriptionStatus !== "ACTIVE" && (
+                    <Card className="shadow-md border-border/50 bg-primary/5">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-primary">
+                                <ShieldCheck className="w-5 h-5" />
+                                Licença Manual Ativa
+                            </CardTitle>
+                            <CardDescription>
+                                Seu acesso está ativado por meio de uma chave de licença manual.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                Esta licença é pré-paga e válida até <strong>{expiryDate?.toLocaleDateString('pt-BR')}</strong>. Como não é uma assinatura recorrente com cobrança automática, você não precisa se preocupar com cobranças futuras!
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             {/* Pricing Info or Purchase Options */}

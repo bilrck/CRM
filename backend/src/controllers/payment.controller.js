@@ -115,10 +115,11 @@ export const receivePaymentWebhook = async (req, res) => {
         const session = event.data.object;
         const userId = session.client_reference_id || session.metadata?.userId;
         const planId = session.metadata?.planId;
+        const gatewaySubscriptionId = session.subscription || null;
 
         if (userId && planId) {
-          console.log(`[Stripe Webhook] Ativando plano ${planId} para usuário ${userId}`);
-          await activateUserPlan(userId, planId);
+          console.log(`[Stripe Webhook] Ativando plano ${planId} para usuário ${userId} com sub ${gatewaySubscriptionId}`);
+          await activateUserPlan(userId, planId, gatewaySubscriptionId);
         }
       }
       return res.json({ received: true });
@@ -138,6 +139,7 @@ export const receivePaymentWebhook = async (req, res) => {
           
           if (payment.status === 'approved') {
             let userId, planId;
+            const gatewaySubscriptionId = payment.preapproval_id || null;
             
             if (payment.external_reference) {
               const parts = payment.external_reference.split(':');
@@ -149,8 +151,8 @@ export const receivePaymentWebhook = async (req, res) => {
             }
 
             if (userId && planId) {
-              console.log(`[MercadoPago Webhook] Ativando plano ${planId} para usuário ${userId}`);
-              await activateUserPlan(userId, planId);
+              console.log(`[MercadoPago Webhook] Ativando plano ${planId} para usuário ${userId} com sub ${gatewaySubscriptionId}`);
+              await activateUserPlan(userId, planId, gatewaySubscriptionId);
             }
           }
         } else {

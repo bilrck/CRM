@@ -5,7 +5,8 @@ import {
     updatePlan, 
     deletePlan,
     checkoutPlan,
-    activateMockPlan
+    activateMockPlan,
+    cancelSubscription
 } from "../controllers/plan.controller.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 
@@ -15,6 +16,7 @@ const router = Router();
 router.get("/", authMiddleware, listPlans);
 
 // Checkout & Purchase
+router.post("/cancel-subscription", authMiddleware, cancelSubscription);
 router.post("/:id/checkout", authMiddleware, checkoutPlan);
 router.post("/:id/activate-mock", authMiddleware, activateMockPlan);
 
