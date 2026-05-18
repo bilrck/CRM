@@ -6,7 +6,13 @@ export const listNotifications = async (req, res) => {
     const { workspaceId } = req;
     const { unreadOnly } = req.query;
 
-    const where = { workspaceId };
+    const where = {
+      userId: req.user.id,
+      OR: [
+        { workspaceId },
+        { workspaceId: null }
+      ]
+    };
     if (unreadOnly === "true") {
       where.read = false;
     }
@@ -26,10 +32,12 @@ export const listNotifications = async (req, res) => {
 export const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    const { workspaceId } = req;
 
     await prisma.notification.updateMany({
-      where: { id: Number(id), workspaceId },
+      where: { 
+        id: Number(id), 
+        userId: req.user.id 
+      },
       data: { read: true },
     });
 
@@ -44,7 +52,14 @@ export const markAllAsRead = async (req, res) => {
     const { workspaceId } = req;
 
     await prisma.notification.updateMany({
-      where: { workspaceId, read: false },
+      where: { 
+        userId: req.user.id,
+        read: false,
+        OR: [
+          { workspaceId },
+          { workspaceId: null }
+        ]
+      },
       data: { read: true },
     });
 

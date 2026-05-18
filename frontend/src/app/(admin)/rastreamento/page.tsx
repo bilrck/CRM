@@ -362,13 +362,14 @@ export default function Rastreamento() {
                                         
                                         {/* Variables UI */}
                                         <div className="space-y-1.5">
-                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variáveis Disponíveis</p>
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Variáveis Disponíveis</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {variables.map(v => (
                                                     <button 
                                                         key={v}
+                                                        type="button"
                                                         onClick={() => setReplyMessage(prev => prev + v)}
-                                                        className="px-2 py-0.5 bg-muted hover:bg-primary/10 text-primary-foreground/70 rounded text-[11px] font-mono border border-border transition-colors text-foreground"
+                                                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-mono font-semibold border border-blue-100 transition-all shadow-sm"
                                                     >
                                                         {v}
                                                     </button>
