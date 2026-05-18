@@ -31,12 +31,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface LeadTask {
+  id: number;
+  title: string;
+  description?: string;
+  priority: string;
+  dueDate: string;
+  status: string;
+  reminderAt?: string;
+  reminderType?: string;
+}
+
+interface LeadDocument {
+  id: number;
+  name: string;
+  size: number;
+  createdAt: string;
+  fileUrl: string;
+}
+
+interface LeadDetail {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  status: string;
+  city: string | null;
+  state: string | null;
+  observations: string | null;
+  createdAt: string;
+  value: number;
+  funnel?: { name: string };
+  stage?: { name: string };
+  documents: LeadDocument[];
+  tasks: LeadTask[];
+}
+
 export default function LeadDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();
   
-  const [lead, setLead] = useState(null);
+  const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   
@@ -76,7 +112,7 @@ export default function LeadDetailsPage() {
     fetchLead();
   }, [fetchLead]);
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -125,7 +161,7 @@ export default function LeadDetailsPage() {
     }
   };
 
-  const handleDeleteDocument = async (docId) => {
+  const handleDeleteDocument = async (docId: number) => {
     if (!confirm("Excluir este documento?")) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/documents/${docId}`, {
@@ -143,7 +179,7 @@ export default function LeadDetailsPage() {
     }
   };
 
-  const handleCreateTask = async (e) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks`, {

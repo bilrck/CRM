@@ -27,13 +27,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface Lead {
+  id: number;
+  name: string;
+}
+
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  dueDate: string;
+  reminderAt: string;
+  reminderType: string;
+  leadId: number | null;
+  lead?: Lead;
+}
+
 export default function TasksPage() {
   const { currentWorkspace } = useWorkspace();
-  const [tasks, setTasks] = useState([]);
-  const [leads, setLeads] = useState([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -87,7 +105,7 @@ export default function TasksPage() {
     fetchLeads();
   }, [currentWorkspace]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const url = editingTask 
@@ -130,7 +148,7 @@ export default function TasksPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     if (!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${id}`, {
@@ -148,7 +166,7 @@ export default function TasksPage() {
     }
   };
 
-  const handleEdit = (task) => {
+  const handleEdit = (task: Task) => {
     setEditingTask(task);
     setFormData({
       title: task.title,
@@ -163,7 +181,7 @@ export default function TasksPage() {
     setOpen(true);
   };
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "HIGH": return "bg-red-500 text-white";
       case "MEDIUM": return "bg-amber-500 text-white";
@@ -172,7 +190,7 @@ export default function TasksPage() {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "COMPLETED": return "bg-blue-100 text-blue-700 border-blue-200";
       case "PENDING": return "bg-amber-100 text-amber-700 border-amber-200";
