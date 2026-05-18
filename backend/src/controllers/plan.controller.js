@@ -180,6 +180,8 @@ export const checkoutPlan = async (req, res) => {
                 const interval = plan.daysValid >= 365 ? 'year' : 'month';
                 sessionParams.append('line_items[0][price_data][recurring][interval]', interval);
                 sessionParams.append('payment_method_types[0]', 'card');
+                sessionParams.append('metadata[planId]', plan.id.toString());
+                sessionParams.append('metadata[userId]', userId.toString());
             } else {
                 sessionParams.append('metadata[planId]', plan.id.toString());
                 sessionParams.append('metadata[userId]', userId.toString());
