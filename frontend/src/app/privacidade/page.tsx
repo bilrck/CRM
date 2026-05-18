@@ -38,7 +38,7 @@ export default function PoliticaPrivacidade() {
             Transparência total sobre como coletamos, usamos e protegemos seus dados pessoais.
           </p>
           <p className="text-emerald-200 text-sm mt-4">
-            Última atualização: 12 de maio de 2026
+            Última atualização: 18 de maio de 2026
           </p>
         </div>
       </div>

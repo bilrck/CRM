@@ -34,7 +34,7 @@ export default function TermosUso() {
             Regras e diretrizes para utilização da nossa plataforma CRM.
           </p>
           <p className="text-slate-400 text-sm mt-4">
-            Última atualização: 12 de maio de 2026
+            Última atualização: 18 de maio de 2026
           </p>
         </div>
       </div>
@@ -85,7 +85,14 @@ export default function TermosUso() {
             <div className="space-y-3 text-gray-600">
               <p><strong>4.1.</strong> Oferecemos planos gratuitos (trial de 14 dias) e pagos. Os valores e características estão disponíveis na página de Preços.</p>
               <p><strong>4.2.</strong> O faturamento é recorrente (mensal ou anual, conforme escolhido).</p>
-              <p><strong>4.3.</strong> O cancelamento pode ser feito a qualquer momento pelo painel, interrompendo a cobrança do ciclo seguinte. Não há reembolso de períodos já pagos e parcialmente utilizados.</p>
+              <p><strong>4.3.</strong> O cancelamento de planos pagos pode ser solicitado a qualquer momento diretamente pelo painel do usuário.</p>
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mt-4 mb-2">
+                <p className="font-semibold text-blue-900 mb-2"><strong>4.4. Direito de Arrependimento e Reembolso (Regra de 10 dias):</strong></p>
+                <ul className="list-disc list-inside text-blue-800 space-y-2 text-sm">
+                  <li>Se a solicitação de cancelamento for realizada em até <strong>10 (dez) dias corridos</strong> contados a partir da data de ativação ou renovação da assinatura, o acesso à plataforma será <strong>interrompido imediatamente</strong> e o valor correspondente será <strong>reembolsado automaticamente</strong> de forma integral na mesma forma de pagamento original.</li>
+                  <li>Se a solicitação for realizada <strong>após o prazo de 10 (dez) dias corridos</strong>, a recorrência da assinatura será devidamente cancelada (evitando novas cobranças), mas o acesso completo à plataforma continuará <strong>ativo e liberado até o final do período do plano vigente</strong> (fim do ciclo de faturamento), não sendo devido qualquer reembolso ou estorno do valor pago.</li>
+                </ul>
+              </div>
             </div>
           </section>
 
