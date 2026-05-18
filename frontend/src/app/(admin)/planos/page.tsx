@@ -26,6 +26,7 @@ interface Plan {
     price: number;
     role: string;
     features: string[];
+    isSubscription: boolean;
 }
 
 export default function PlansPage() {

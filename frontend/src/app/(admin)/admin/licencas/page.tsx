@@ -31,6 +31,8 @@ interface Plan {
     price: number;
     role: string;
     features: string[];
+    isActive: boolean;
+    isSubscription: boolean;
 }
 
 interface LicenseKey {

@@ -158,9 +158,7 @@ export const checkoutPlan = async (req, res) => {
 
         const { provider, accessToken } = paymentConfig;
 
-        const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
-        const protocol = req.headers['x-forwarded-proto'] || 'http';
-        const baseUrl = `${protocol}://${host}`;
+        const baseUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:3000';
 
         if (provider === "STRIPE") {
             const isSubscription = plan.isSubscription;
