@@ -12,7 +12,7 @@ import { socket } from "@/lib/socket";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/app/api/userProvider";
+import { useWorkspace, useUser } from "@/app/api/userProvider";
 
 interface Notification {
   id: number;
@@ -23,10 +23,41 @@ interface Notification {
   createdAt: string;
 }
 
+const playNotificationSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    const playTone = (freq: number, startTime: number, duration: number) => {
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.04);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+    
+    const now = audioCtx.currentTime;
+    playTone(587.33, now, 0.12); // D5 chime
+    playTone(880.00, now + 0.08, 0.22); // A5 chime
+  } catch (err) {
+    console.error("Erro ao reproduzir som de notificação:", err);
+  }
+};
+
 export function Notifications() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const { currentWorkspace } = useWorkspace();
+    const user = useUser();
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -47,12 +78,20 @@ export function Notifications() {
         fetchNotifications();
 
         const onNotificationUpdate = () => {
-             fetchNotifications(); // Recarregar quando receber evento de notificação
+             fetchNotifications();
+             const isSoundEnabled = user?.notificationSettings?.soundAlert !== false;
+             if (isSoundEnabled) {
+                 playNotificationSound();
+             }
         };
 
         const onMessageNew = (data: any) => {
             if (!data.fromMe) {
                 fetchNotifications();
+                const isSoundEnabled = user?.notificationSettings?.soundAlert !== false;
+                if (isSoundEnabled) {
+                    playNotificationSound();
+                }
             }
         };
 
@@ -63,7 +102,7 @@ export function Notifications() {
             socket.off("notification:new", onNotificationUpdate);
             socket.off("message:new", onMessageNew);
         };
-    }, [fetchNotifications]);
+    }, [fetchNotifications, user]);
 
     useEffect(() => {
         if (currentWorkspace?.id) {

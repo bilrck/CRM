@@ -25,7 +25,8 @@ import {
   Trash2,
   Plus,
   Sparkles,
-  Info
+  Info,
+  Volume2
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -63,7 +64,8 @@ export default function Me() {
     conversion: true,
     message: true,
     dailyReport: false,
-    weeklyReport: true
+    weeklyReport: true,
+    soundAlert: true
   });
 
   // Preferências
@@ -102,7 +104,20 @@ export default function Me() {
         empresa: user.workspaceName || "",
         avatar: user.avatarUrl || ""
       });
-      if (user.notificationSettings) setNotifData(user.notificationSettings);
+      if (user.notificationSettings) {
+        setNotifData({
+          email: true,
+          push: true,
+          whatsapp: false,
+          newLead: true,
+          conversion: true,
+          message: true,
+          dailyReport: false,
+          weeklyReport: true,
+          soundAlert: true,
+          ...user.notificationSettings
+        });
+      }
       if (user.preferences) {
         setPrefData({
           theme: "light",
@@ -398,6 +413,7 @@ export default function Me() {
                       { id: 'email', label: 'Email', desc: 'Alertas importantes no seu inbox', icon: Mail },
                       { id: 'push', label: 'Push Browser', desc: 'Notificações no navegador', icon: Bell },
                       { id: 'whatsapp', label: 'WhatsApp', desc: 'Receber via nosso bot oficial', icon: Phone },
+                      { id: 'soundAlert', label: 'Barulho Sonoro', desc: 'Tocar som ao receber notificações', icon: Volume2 },
                     ].map((item) => (
                       <div key={item.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-muted/10">
                         <div className="flex items-center gap-3">

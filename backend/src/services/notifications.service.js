@@ -4,6 +4,87 @@ import { sendMail } from "./mail.service.js";
 import { sendMessage } from "./evolution.service.js";
 
 /**
+ * Sends a WhatsApp notification resolving connection instances and custom recipient targets from settings.
+ */
+export const sendWhatsAppNotification = async (userId, workspaceId, title, message) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        phone: true,
+        notificationSettings: true
+      }
+    });
+
+    if (!user) return false;
+
+    const settings = user.notificationSettings || {};
+    
+    // 1. Resolve Connection (custom chosen or fallback)
+    let connection = null;
+    const connectionId = settings.whatsappNotificationConnectionId;
+    if (connectionId && connectionId !== "none" && connectionId !== "null" && connectionId !== "" && !isNaN(Number(connectionId))) {
+      connection = await prisma.connection.findFirst({
+        where: {
+          id: Number(connectionId),
+          status: "connected"
+        }
+      });
+    }
+
+    // Fallback to first connected connection in the workspace
+    if (!connection) {
+      connection = await prisma.connection.findFirst({
+        where: {
+          workspaceId: workspaceId || undefined,
+          provider: "evolution",
+          status: "connected"
+        }
+      });
+    }
+
+    if (!connection || !connection.apiSecret) {
+      console.warn(`[WhatsApp Notification] No connected instance found for user ${userId} in workspace ${workspaceId}`);
+      return false;
+    }
+
+    // 2. Resolve Target (self, group, custom number)
+    let target = null;
+    const targetType = settings.whatsappNotificationTargetType || 'self';
+    const targetValue = settings.whatsappNotificationTargetValue;
+
+    if (targetType === 'self') {
+      target = user.phone;
+    } else if (targetType === 'group' || targetType === 'custom') {
+      target = targetValue;
+    }
+
+    if (!target) {
+      console.warn(`[WhatsApp Notification] No target number/group JID resolved for user ${userId}`);
+      return false;
+    }
+
+    // Clean phone number of spaces, hyphens, and parentheses (keep group JIDs intact)
+    if (!target.endsWith('@g.us')) {
+      target = target.replace(/\D/g, '');
+    }
+
+    // 3. Send Message
+    await sendMessage(
+      connection.apiSecret,
+      connection.apiKey,
+      target,
+      `🔔 *${title}*\n\n${message}`
+    );
+    return true;
+  } catch (err) {
+    console.error("[WhatsApp Notification] Send failed:", err.message);
+    return false;
+  }
+};
+
+/**
  * Sends a notification through all enabled channels based on user settings.
  */
 export const notifyUser = async ({
@@ -23,10 +104,6 @@ export const notifyUser = async ({
         email: true, 
         phone: true, 
         notificationSettings: true,
-        connections: {
-            where: { status: "connected" },
-            take: 1
-        }
       }
     });
 
@@ -82,18 +159,10 @@ export const notifyUser = async ({
       }
     }
 
-    // 5. WhatsApp Channel (Default OFF unless specified)
-    if (settings.whatsapp === true && isEnabled('whatsapp', eventKey) && user.phone) {
+    // 5. WhatsApp Channel
+    if (settings.whatsapp === true && isEnabled('whatsapp', eventKey)) {
       try {
-        const conn = user.connections[0];
-        if (conn && conn.apiSecret) {
-          await sendMessage(
-            conn.apiSecret,
-            conn.apiKey,
-            user.phone,
-            `🔔 *${title}*\n\n${message}`
-          );
-        }
+        await sendWhatsAppNotification(userId, workspaceId, title, message);
       } catch (err) {
         console.error("WhatsApp notification failed:", err.message);
       }

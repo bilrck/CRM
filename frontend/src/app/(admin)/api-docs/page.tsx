@@ -3,7 +3,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Book, Code, Shield, AlertCircle, Zap, Database, KeyRound, Clock, BarChart3, Users, Layout } from "lucide-react";
+import { 
+  Code, 
+  Shield, 
+  AlertCircle, 
+  Zap, 
+  Database, 
+  KeyRound, 
+  Clock, 
+  BarChart3, 
+  Users, 
+  Layout, 
+  Smartphone,
+  CheckCircle2,
+  MessageSquare,
+  Home
+} from "lucide-react";
 
 interface Param {
   name: string;
@@ -24,18 +39,18 @@ interface EndpointCardProps {
 
 function EndpointCard({ method, path, description, queryParams, bodyParams, example, response }: EndpointCardProps) {
   const methodColor = {
-    GET: "bg-blue-50 text-blue-700 border-blue-200",
-    POST: "bg-green-50 text-green-700 border-green-200",
-    PUT: "bg-amber-50 text-amber-700 border-amber-200",
-    DELETE: "bg-red-50 text-red-700 border-red-200",
+    GET: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+    POST: "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+    PUT: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
+    DELETE: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
   }[method];
 
   return (
     <Card className="overflow-hidden border-border bg-card">
-      <div className="p-4 bg-muted/50 border-b border-border flex items-center justify-between">
+      <div className="p-4 bg-muted/50 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Badge className={`${methodColor} font-bold px-3`}>{method}</Badge>
-          <code className="text-sm font-semibold text-foreground">{path}</code>
+          <code className="text-sm font-semibold text-foreground break-all">{path}</code>
         </div>
         <span className="text-xs text-muted-foreground">{description}</span>
       </div>
@@ -118,40 +133,40 @@ export default function ApiDocsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-12 pb-24">
+    <div className="p-8 max-w-6xl mx-auto space-y-12 pb-24 bg-background text-foreground">
       {/* Header */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <div className="bg-primary p-2 rounded-xl">
             <Code className="text-primary-foreground h-8 w-8" />
           </div>
-          <h1 className="text-5xl font-extrabold tracking-tight text-foreground">Documentação da API</h1>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Documentação da API</h1>
         </div>
-        <p className="text-muted-foreground text-xl max-w-2xl">
-          Conecte seu CRM a qualquer plataforma. Automatize seus leads, funis e equipe via HTTP.
+        <p className="text-muted-foreground text-lg md:text-xl max-w-2xl">
+          Conecte seu CRM a qualquer plataforma. Automatize seus leads, funis, canais de disparo do WhatsApp e lembretes via HTTP.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-foreground"><KeyRound size={16} className="text-primary" /> Autenticação</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><KeyRound size={16} className="text-primary" /> Autenticação</CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-xs text-muted-foreground">Use o header <code className="bg-background border border-border px-1 rounded text-foreground">x-api-key</code> em todas as chamadas.</p>
+                <p className="text-xs text-muted-foreground">Use o header <code className="bg-muted border border-border px-1 rounded">x-api-key</code> em todas as chamadas.</p>
             </CardContent>
         </Card>
         <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-foreground"><Zap size={16} className="text-primary" /> Base URL</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><Zap size={16} className="text-primary" /> Base URL</CardTitle>
             </CardHeader>
             <CardContent>
-                <code className="text-xs bg-background border border-border px-1 rounded text-foreground">{baseUrl}/api/v1</code>
+                <code className="text-xs bg-muted border border-border px-1 rounded break-all">{baseUrl}/api/v1</code>
             </CardContent>
         </Card>
         <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-foreground"><Clock size={16} className="text-primary" /> Rate Limit</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><Clock size={16} className="text-primary" /> Rate Limit</CardTitle>
             </CardHeader>
             <CardContent>
                 <p className="text-xs text-muted-foreground">100 requisições por minuto por workspace.</p>
@@ -159,24 +174,60 @@ export default function ApiDocsPage() {
         </Card>
       </div>
 
+      {/* Workspace Section */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
+            <Home className="text-primary h-6 w-6" />
+            <h2 className="text-2xl font-bold">Workspace</h2>
+        </div>
+        <div className="grid gap-6">
+            <EndpointCard 
+                method="GET" 
+                path="/api/v1/workspaces/me" 
+                description="Obtém detalhes do workspace vinculado a chave de API"
+                response={`{
+  "id": 1,
+  "name": "Workspace Principal",
+  "plan": "PRO",
+  "createdAt": "2026-05-18T10:00:00.000Z"
+}`}
+            />
+        </div>
+      </section>
+
       {/* Leads Section */}
       <section className="space-y-6">
         <div className="flex items-center gap-3 border-b border-border pb-4">
             <Database className="text-primary h-6 w-6" />
-            <h2 className="text-2xl font-bold text-foreground">Leads</h2>
+            <h2 className="text-2xl font-bold">Leads</h2>
         </div>
         <div className="grid gap-6">
             <EndpointCard 
                 method="GET" 
                 path="/api/v1/leads" 
-                description="Retorna lista paginada de leads"
+                description="Retorna lista de leads do workspace"
                 queryParams={[
-                    { name: "limit", type: "number", description: "Padrão 10" },
-                    { name: "offset", type: "number", description: "Pulo para paginação" }
+                    { name: "limit", type: "number", description: "Limite de registros retornados (padrão 10)" },
+                    { name: "offset", type: "number", description: "Registros pulados para paginação (padrão 0)" },
+                    { name: "funnelId", type: "number", description: "Filtrar leads por ID de Funil" },
+                    { name: "stageId", type: "number", description: "Filtrar leads por ID da Etapa" }
                 ]}
                 response={`{
   "data": [
-    { "id": 1, "name": "Lead Exemplo", "phone": "5511...", "status": "new" }
+    {
+      "id": 42,
+      "name": "João da Silva",
+      "phone": "5511999999999",
+      "email": "joao@email.com",
+      "funnelId": 2,
+      "stageId": 5,
+      "status": "new",
+      "tags": ["site", "whatsapp"],
+      "fields": {
+        "cidade": "São Paulo",
+        "empresa": "TechCorp"
+      }
+    }
   ],
   "meta": { "total": 1, "limit": 10, "offset": 0 }
 }`}
@@ -184,23 +235,126 @@ export default function ApiDocsPage() {
             <EndpointCard 
                 method="POST" 
                 path="/api/v1/leads" 
-                description="Insere um Lead no workspace"
+                description="Cria e insere um novo Lead no CRM"
                 bodyParams={[
-                    { name: "name", type: "string", required: true },
-                    { name: "phone", type: "string" },
-                    { name: "email", type: "string" },
-                    { name: "funnelId", type: "number" },
-                    { name: "stageId", type: "number" },
-                    { name: "tags", type: "string[]" }
+                    { name: "name", type: "string", required: true, description: "Nome completo do lead" },
+                    { name: "phone", type: "string", description: "Número de celular (apenas dígitos)" },
+                    { name: "email", type: "string", description: "Endereço de e-mail" },
+                    { name: "funnelId", type: "number", description: "ID do Funil de destino" },
+                    { name: "stageId", type: "number", description: "ID da Etapa/Estágio do Funil" },
+                    { name: "tags", type: "array", description: "Lista de tags personalizadas (ex: ['site', 'google'])" },
+                    { name: "fields", type: "object", description: "Chave-valor de campos customizados adicionais" }
                 ]}
                 example={`{
   "name": "João da Silva",
   "phone": "5511999999999",
-  "tags": ["site", "orgânico"]
+  "email": "joao@email.com",
+  "tags": ["site", "landing-page"],
+  "fields": {
+    "empresa": "TechCorp",
+    "cargo": "Diretor"
+  }
 }`}
             />
-            <EndpointCard method="PUT" path="/api/v1/leads/:id" description="Atualiza dados parciais do Lead" bodyParams={[{ name: "status", type: "string" }, { name: "stageId", type: "number" }]} />
-            <EndpointCard method="DELETE" path="/api/v1/leads/:id" description="Exclui o Lead do banco de dados" />
+            <EndpointCard 
+                method="PUT" 
+                path="/api/v1/leads/:id" 
+                description="Atualiza dados parciais ou altera a etapa do Lead"
+                bodyParams={[
+                    { name: "name", type: "string", description: "Novo nome" },
+                    { name: "phone", type: "string", description: "Novo telefone" },
+                    { name: "email", type: "string", description: "Novo e-mail" },
+                    { name: "funnelId", type: "number", description: "Alterar Funil" },
+                    { name: "stageId", type: "number", description: "Alterar Etapa" },
+                    { name: "status", type: "string", description: "Altera status do negócio ('new', 'won', 'lost')" },
+                    { name: "tags", type: "array", description: "Substitui lista de tags" },
+                    { name: "fields", type: "object", description: "Campos customizados a serem atualizados" }
+                ]}
+                example={`{
+  "stageId": 6,
+  "status": "won",
+  "fields": {
+    "valor_fechado": "1500"
+  }
+}`}
+            />
+            <EndpointCard 
+                method="DELETE" 
+                path="/api/v1/leads/:id" 
+                description="Remove permanentemente o Lead do workspace"
+            />
+        </div>
+      </section>
+
+      {/* WhatsApp Section */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
+            <Smartphone className="text-primary h-6 w-6" />
+            <h2 className="text-2xl font-bold">WhatsApp & Mensagens</h2>
+        </div>
+        <div className="grid gap-6">
+            <EndpointCard 
+                method="GET" 
+                path="/api/v1/connections" 
+                description="Lista todas as instâncias ativas do WhatsApp vinculadas ao workspace"
+                response={`[
+  {
+    "id": 3,
+    "name": "Suporte Comercial",
+    "provider": "evolution",
+    "status": "connected"
+  }
+]`}
+            />
+            <EndpointCard 
+                method="GET" 
+                path="/api/v1/conversations" 
+                description="Lista todas as conversas/chats do WhatsApp no workspace"
+                queryParams={[
+                    { name: "limit", type: "number", description: "Limite de conversas a retornar" },
+                    { name: "offset", type: "number", description: "Número de registros a pular" }
+                ]}
+                response={`[
+  {
+    "id": 15,
+    "remoteJid": "5511999999999@s.whatsapp.net",
+    "pushName": "João Silva",
+    "unreadCount": 0,
+    "lastMessage": "Olá, qual valor do plano?"
+  }
+]`}
+            />
+            <EndpointCard 
+                method="GET" 
+                path="/api/v1/messages/:conversationId" 
+                description="Obtém a lista de mensagens de um chat específico"
+                queryParams={[
+                    { name: "limit", type: "number", description: "Limite de mensagens" },
+                    { name: "offset", type: "number", description: "Mensagens a pular" }
+                ]}
+                response={`[
+  {
+    "id": 148,
+    "fromMe": false,
+    "body": "Olá, qual valor do plano?",
+    "timestamp": 1782390234
+  }
+]`}
+            />
+            <EndpointCard 
+                method="POST" 
+                path="/api/v1/messages/send" 
+                description="Dispara uma mensagem de WhatsApp corporativo para um contato ou conversa ativa"
+                bodyParams={[
+                    { name: "body", type: "string", required: true, description: "Conteúdo textual da mensagem a enviar" },
+                    { name: "phone", type: "string", description: "Número de telefone com DDI (ex: 5511999999999)" },
+                    { name: "conversationId", type: "number", description: "ID de uma conversa existente no banco de dados" }
+                ]}
+                example={`{
+  "phone": "5511999999999",
+  "body": "Olá! Seu boleto de faturamento está pronto. Segue o link..."
+}`}
+            />
         </div>
       </section>
 
@@ -208,33 +362,114 @@ export default function ApiDocsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-3 border-b border-border pb-4">
             <Layout className="text-primary h-6 w-6" />
-            <h2 className="text-2xl font-bold text-foreground">Funis & Etapas</h2>
+            <h2 className="text-2xl font-bold">Funis & Etapas</h2>
         </div>
         <div className="grid gap-6">
             <EndpointCard 
                 method="GET" 
                 path="/api/v1/funnels" 
-                description="Listar pipelines configurados"
+                description="Lista os funis cadastrados e suas respectivas etapas ordenadas"
                 response={`[
-  { 
-    "id": 1, 
-    "name": "Vendas", 
-    "stages": [{ "id": 10, "name": "Novo", "order": 0 }] 
+  {
+    "id": 2,
+    "name": "Funil Comercial",
+    "stages": [
+      {
+        "id": 5,
+        "name": "Novo Lead",
+        "color": "#3b82f6",
+        "order": 1
+      },
+      {
+        "id": 6,
+        "name": "Proposta Enviada",
+        "color": "#eab308",
+        "order": 2
+      }
+    ]
   }
 ]`}
             />
             <EndpointCard 
                 method="POST" 
                 path="/api/v1/funnels" 
-                description="Cria novo funil com estágios padrão"
+                description="Cria um novo funil com etapas padrão"
+                bodyParams={[
+                    { name: "name", type: "string", required: true, description: "Nome identificador do funil" },
+                    { name: "description", type: "string", description: "Breve descrição sobre o pipeline" }
+                ]}
                 example={`{
-  "name": "Novo Funil",
-  "description": "Funil para parcerias",
-  "stages": [{ "name": "Prospecção", "color": "#ff0000" }]
+  "name": "Funil Parcerias B2B",
+  "description": "Estágios para atração e fechamento de grandes corporações"
 }`}
             />
-            <EndpointCard method="PUT" path="/api/v1/funnels/:id" description="Atualiza metadados do funil" />
-            <EndpointCard method="DELETE" path="/api/v1/funnels/:id" description="Remove funil e todas as etapas vinculadas" />
+            <EndpointCard 
+                method="PUT" 
+                path="/api/v1/funnels/:id" 
+                description="Atualiza as propriedades estruturais de um funil"
+                bodyParams={[
+                    { name: "name", type: "string", description: "Novo nome" },
+                    { name: "description", type: "string", description: "Nova descrição" }
+                ]}
+                example={`{
+  "name": "Parcerias Estratégicas B2B"
+}`}
+            />
+            <EndpointCard 
+                method="DELETE" 
+                path="/api/v1/funnels/:id" 
+                description="Exclui o funil e desvincula os leads"
+            />
+        </div>
+      </section>
+
+      {/* Tasks Section */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
+            <CheckCircle2 className="text-primary h-6 w-6" />
+            <h2 className="text-2xl font-bold">Tarefas & Lembretes</h2>
+        </div>
+        <div className="grid gap-6">
+            <EndpointCard 
+                method="GET" 
+                path="/api/v1/tasks" 
+                description="Lista todas as tarefas ativas do usuário do workspace"
+                response={`[
+  {
+    "id": 10,
+    "title": "Apresentação da Proposta",
+    "description": "Ligar via WhatsApp para esclarecer dúvidas",
+    "status": "PENDING",
+    "priority": "HIGH",
+    "dueDate": "2026-05-20T14:00:00.000Z",
+    "reminderAt": "2026-05-20T13:45:00.000Z",
+    "reminderType": "BOTH"
+  }
+]`}
+            />
+            <EndpointCard 
+                method="POST" 
+                path="/api/v1/tasks" 
+                description="Cria uma nova tarefa com gatilhos de agendamento de lembrete"
+                bodyParams={[
+                    { name: "title", type: "string", required: true, description: "Título da atividade" },
+                    { name: "description", type: "string", description: "Notas e explicações" },
+                    { name: "status", type: "string", description: "Estado inicial ('PENDING', 'COMPLETED', 'CANCELED')" },
+                    { name: "priority", type: "string", description: "Prioridade de urgência ('LOW', 'MEDIUM', 'HIGH')" },
+                    { name: "dueDate", type: "string", description: "Vencimento da atividade (ISO-8601, ex: 2026-05-20T14:00:00Z)" },
+                    { name: "reminderAt", type: "string", description: "Horário para disparo do lembrete automático (ISO-8601)" },
+                    { name: "reminderType", type: "string", description: "Canal de alerta do lembrete ('SYSTEM', 'WHATSAPP', 'BOTH')" },
+                    { name: "leadId", type: "number", description: "Vincular a tarefa a um ID de Lead específico" }
+                ]}
+                example={`{
+  "title": "Enviar minuta do contrato",
+  "description": "Revisar cláusula 4 antes de disparar",
+  "priority": "HIGH",
+  "reminderType": "BOTH",
+  "reminderAt": "2026-05-22T09:00:00.000Z",
+  "leadId": 42
+}`}
+            />
         </div>
       </section>
 
@@ -242,7 +477,7 @@ export default function ApiDocsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-3 border-b border-border pb-4">
             <Users className="text-primary h-6 w-6" />
-            <h2 className="text-2xl font-bold text-foreground">Usuários (Membros)</h2>
+            <h2 className="text-2xl font-bold">Usuários & Equipe</h2>
         </div>
         <div className="grid gap-6">
             <EndpointCard 
@@ -258,12 +493,30 @@ export default function ApiDocsPage() {
                 path="/api/v1/users" 
                 description="Vincular usuário existente ao workspace"
                 bodyParams={[
-                    { name: "email", type: "string", required: true },
-                    { name: "role", type: "string", description: "ADMIN, MEMBER, GESTOR, CLIENTE" }
+                    { name: "email", type: "string", required: true, description: "E-mail do usuário cadastrado na plataforma" },
+                    { name: "role", type: "string", required: true, description: "Nível de acesso ('ADMIN', 'MEMBER', 'GESTOR', 'CLIENTE')" }
                 ]}
+                example={`{
+  "email": "consultor@empresa.com",
+  "role": "MEMBER"
+}`}
             />
-            <EndpointCard method="PUT" path="/api/v1/users/:membershipId" description="Atualizar permissões e cargo" />
-            <EndpointCard method="DELETE" path="/api/v1/users/:membershipId" description="Remover membro do workspace" />
+            <EndpointCard 
+                method="PUT" 
+                path="/api/v1/users/:id" 
+                description="Atualizar cargo e privilégios de acesso do membro"
+                bodyParams={[
+                    { name: "role", type: "string", required: true, description: "Novo nível de acesso ('ADMIN', 'MEMBER', 'GESTOR', 'CLIENTE')" }
+                ]}
+                example={`{
+  "role": "GESTOR"
+}`}
+            />
+            <EndpointCard 
+                method="DELETE" 
+                path="/api/v1/users/:id" 
+                description="Revoga acesso e desvincula o membro do workspace"
+            />
         </div>
       </section>
 
@@ -271,15 +524,15 @@ export default function ApiDocsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-3 border-b border-border pb-4">
             <BarChart3 className="text-primary h-6 w-6" />
-            <h2 className="text-2xl font-bold text-foreground">Relatórios</h2>
+            <h2 className="text-2xl font-bold">Relatórios</h2>
         </div>
         <div className="grid gap-6">
             <EndpointCard 
                 method="GET" 
                 path="/api/v1/reports/dashboard" 
-                description="Obter KPIs consolidados"
+                description="Obter estatísticas de desempenho consolidadas"
                 queryParams={[
-                    { name: "period", type: "string", description: "7d, 30d, 90d" }
+                    { name: "period", type: "string", description: "Período temporal de apuração: '7d', '30d', '90d' (padrão '30d')" }
                 ]}
                 response={`{
   "period": "30d",

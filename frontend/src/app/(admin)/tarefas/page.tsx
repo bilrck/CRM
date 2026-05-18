@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CheckCircle, Clock, MoreVertical, Plus, Trash2, Edit2, Bell, MessageCircle } from "lucide-react";
+import { Calendar, CheckCircle, Clock, MoreVertical, Plus, Trash2, Edit2, Bell, MessageCircle, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -163,6 +163,37 @@ export default function TasksPage() {
       fetchTasks();
     } catch (error) {
       toast.error("Erro ao excluir tarefa");
+    }
+  };
+
+  const handleToggleComplete = async (task: Task) => {
+    try {
+      const newStatus = task.status === "COMPLETED" ? "PENDING" : "COMPLETED";
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${task.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-workspace-id": currentWorkspace.id.toString(),
+        },
+        body: JSON.stringify({
+          title: task.title,
+          description: task.description,
+          status: newStatus,
+          priority: task.priority,
+          dueDate: task.dueDate,
+          reminderAt: task.reminderAt,
+          reminderType: task.reminderType,
+          leadId: task.leadId ? task.leadId.toString() : "none",
+        }),
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Erro ao atualizar status");
+      
+      toast.success(newStatus === "COMPLETED" ? "Tarefa concluída!" : "Tarefa reaberta!");
+      fetchTasks();
+    } catch (error) {
+      toast.error("Erro ao atualizar status da tarefa");
     }
   };
 
@@ -345,6 +376,11 @@ export default function TasksPage() {
                     {task.status === "PENDING" ? "Pendente" : task.status === "COMPLETED" ? "Concluída" : "Cancelada"}
                   </Badge>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {task.status !== "COMPLETED" && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-emerald-500 hover:text-white hover:bg-emerald-500" onClick={() => handleToggleComplete(task)} title="Marcar como Concluída">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleEdit(task)}>
                       <Edit2 className="h-4 w-4" />
                     </Button>

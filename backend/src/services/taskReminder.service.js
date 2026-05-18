@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import prisma from "../config/prisma.js";
 import { sendMessage } from "./evolution.service.js";
+import { sendWhatsAppNotification } from "./notifications.service.js";
 import { createNotification } from "../controllers/notifications.controller.js";
 import { logger } from "../utils/logger.js";
 
@@ -32,31 +33,20 @@ export const startTaskReminderWorker = () => {
           
           let notificationSent = false;
 
-          // 1. WhatsApp Reminder
+          // 1. WhatsApp Reminder using configured notification channel
           if (reminderType === "WHATSAPP" || reminderType === "BOTH") {
-            if (user.phone) {
-              const message = `🚨 *LEMBRETE DE TAREFA*\n\n📌 *Tarefa:* ${title}\n📅 *Vencimento:* ${task.dueDate ? new Date(task.dueDate).toLocaleString('pt-BR') : 'Sem data'}\n${lead ? `👤 *Lead:* ${lead.name}` : ''}\n\n_Enviado automaticamente por Rastreia.ai_`;
-              
-              // Find active instance for the workspace to send the message
-              const connection = await prisma.connection.findFirst({
-                where: { 
-                  workspaceId: task.workspaceId,
-                  provider: "evolution",
-                  status: "connected"
-                }
-              });
-
-              if (connection) {
-                try {
-                  await sendMessage(connection.apiSecret, connection.apiKey, user.phone, message);
-                  notificationSent = true;
-                  await logger.info("TASK_REMINDER", `Lembrete WhatsApp enviado para ${user.name}`, { taskId: task.id });
-                } catch (err) {
-                  await logger.error("TASK_REMINDER", `Erro ao enviar WhatsApp: ${err.message}`, { taskId: task.id });
-                }
+            const message = `🚨 *LEMBRETE DE TAREFA*\n\n📌 *Tarefa:* ${title}\n📅 *Vencimento:* ${task.dueDate ? new Date(task.dueDate).toLocaleString('pt-BR') : 'Sem data'}\n${lead ? `👤 *Lead:* ${lead.name}` : ''}\n\n_Enviado automaticamente por Rastreia.ai_`;
+            
+            try {
+              const sent = await sendWhatsAppNotification(user.id, task.workspaceId, "LEMBRETE DE TAREFA", message);
+              if (sent) {
+                notificationSent = true;
+                await logger.info("TASK_REMINDER", `Lembrete WhatsApp enviado para ${user.name}`, { taskId: task.id });
               } else {
-                await logger.warn("TASK_REMINDER", `Falha ao enviar WhatsApp: Nenhuma instância conectada no workspace ${task.workspaceId}`);
+                await logger.warn("TASK_REMINDER", `Falha ao enviar WhatsApp: Sem conexões ativas ou destino não configurado`, { taskId: task.id });
               }
+            } catch (err) {
+              await logger.error("TASK_REMINDER", `Erro ao enviar WhatsApp: ${err.message}`, { taskId: task.id });
             }
           }
 
