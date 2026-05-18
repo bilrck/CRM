@@ -66,6 +66,28 @@ export const testPaymentConfig = async (req, res) => {
       } catch (stripeError) {
         return res.status(500).json({ error: `Falha ao conectar com os servidores da Stripe: ${stripeError.message}` });
       }
+    } else if (provider === "PAGARME") {
+      try {
+        const base64Key = Buffer.from(accessToken + ":").toString("base64");
+        const pagarmeRes = await fetch("https://api.pagar.me/core/v5/plans?page=1&size=1", {
+          method: "GET",
+          headers: {
+            Authorization: `Basic ${base64Key}`,
+          },
+        });
+
+        const data = await pagarmeRes.json();
+
+        if (pagarmeRes.ok) {
+          return res.json({ success: true, message: "Conexão com a Pagar.me realizada com sucesso!" });
+        } else {
+          return res.status(400).json({
+            error: `Erro retornado pela Pagar.me: ${data.message || "Credenciais inválidas"}`
+          });
+        }
+      } catch (pagarmeError) {
+        return res.status(500).json({ error: `Falha ao conectar com os servidores da Pagar.me: ${pagarmeError.message}` });
+      }
     } else {
       try {
         const mpRes = await fetch("https://api.mercadopago.com/v1/payment_methods", {
@@ -124,6 +146,24 @@ export const receivePaymentWebhook = async (req, res) => {
       }
       return res.json({ received: true });
     } else {
+      // 3. Pagar.me Webhook
+      const pagarmeSignature = req.headers['x-hub-signature'] || req.headers['x-pagarme-signature'] || req.body.account;
+      if (pagarmeSignature || (req.body.type && req.body.data && req.body.data.metadata)) {
+        const { type, data } = req.body;
+        if (type === 'order.paid' || type === 'subscription.updated' || type === 'subscription.created') {
+          const metadata = data.metadata || {};
+          const userId = metadata.userId || metadata.user_id;
+          const planId = metadata.planId || metadata.plan_id;
+          const gatewaySubscriptionId = data.subscription?.id || (type.startsWith('subscription') ? data.id : null);
+
+          if (userId && planId) {
+            console.log(`[Pagar.me Webhook] Ativando plano ${planId} para usuário ${userId} com sub ${gatewaySubscriptionId}`);
+            await activateUserPlan(userId, planId, gatewaySubscriptionId);
+          }
+        }
+        return res.json({ received: true });
+      }
+
       const paymentId = req.body.data?.id || req.query['data.id'] || req.body.id;
       const topic = req.body.type || req.body.topic;
 

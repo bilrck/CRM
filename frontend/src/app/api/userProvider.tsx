@@ -192,6 +192,14 @@ export function useUser() {
   return context?.user ?? undefined; // Keep backward compatibility for 'user' check
 }
 
+export function useUserContext() {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error("useUserContext must be used within a UserProvider");
+  }
+  return context;
+}
+
 export function useWorkspace() {
   const context = useContext(UserContext);
   if (!context) return { workspaces: [], currentWorkspace: null, switchWorkspace: () => {} };

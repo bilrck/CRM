@@ -205,6 +205,43 @@ export const checkoutPlan = async (req, res) => {
                 console.error("Erro Stripe Checkout:", session);
                 return res.status(400).json({ error: `Falha ao iniciar Checkout com Stripe: ${session.error?.message || "Erro desconhecido"}` });
             }
+        } else if (provider === "PAGARME") {
+            const base64Key = Buffer.from(accessToken + ":").toString("base64");
+            const pagarMeBody = {
+                name: plan.name,
+                type: "order",
+                status: "active",
+                payment_methods: ["credit_card", "pix"],
+                items: [
+                    {
+                        amount: Math.round(plan.price * 100),
+                        description: plan.description || `Plano ${plan.name}`,
+                        quantity: 1
+                    }
+                ],
+                metadata: {
+                    planId: plan.id.toString(),
+                    userId: userId.toString()
+                }
+            };
+
+            const pagarmeRes = await fetch("https://api.pagar.me/core/v5/payment-links", {
+                method: "POST",
+                headers: {
+                    Authorization: `Basic ${base64Key}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(pagarMeBody),
+            });
+
+            const link = await pagarmeRes.json();
+
+            if (pagarmeRes.ok && link.url) {
+                return res.json({ url: link.url, provider: "PAGARME", isMock: false });
+            } else {
+                console.error("Erro Pagar.me Checkout:", link);
+                return res.status(400).json({ error: `Falha ao iniciar Checkout com Pagar.me: ${link.message || "Erro desconhecido"}` });
+            }
         } else {
             const isSubscription = plan.isSubscription;
 
@@ -342,6 +379,18 @@ export const cancelSubscription = async (req, res) => {
                     const dataMP = await resMP.json();
                     if (!resMP.ok) {
                         console.error("Erro ao cancelar preapproval no Mercado Pago:", dataMP);
+                    }
+                } else if (provider === "PAGARME") {
+                    const base64Key = Buffer.from(accessToken + ":").toString("base64");
+                    const resPagarme = await fetch(`https://api.pagar.me/core/v5/subscriptions/${user.gatewaySubscriptionId}`, {
+                        method: "DELETE",
+                        headers: {
+                            Authorization: `Basic ${base64Key}`,
+                        }
+                    });
+                    const dataPagarme = await resPagarme.json();
+                    if (!resPagarme.ok) {
+                        console.error("Erro ao cancelar assinatura no Pagar.me:", dataPagarme);
                     }
                 }
             }

@@ -36,11 +36,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useUser } from "@/app/api/userProvider";
+import { useUser, useUserContext } from "@/app/api/userProvider";
 import { useTheme } from "next-themes";
 
 export default function Me() {
   const user = useUser();
+  const { updateUser } = useUserContext();
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState("perfil");
   const [loading, setLoading] = useState(false);
@@ -65,7 +66,8 @@ export default function Me() {
     message: true,
     dailyReport: false,
     weeklyReport: true,
-    soundAlert: true
+    soundAlert: true,
+    whatsappNotificationFilter: "ALL"
   });
 
   // Preferências
@@ -115,6 +117,7 @@ export default function Me() {
           dailyReport: false,
           weeklyReport: true,
           soundAlert: true,
+          whatsappNotificationFilter: "ALL",
           ...user.notificationSettings
         });
       }
@@ -169,6 +172,7 @@ export default function Me() {
       });
       if (res.ok) {
         toast.success("Configurações de notificações atualizadas!");
+        updateUser({ notificationSettings: notifData });
       } else {
         toast.error("Erro ao salvar notificações");
       }
@@ -426,7 +430,7 @@ export default function Me() {
                           </div>
                         </div>
                         <Switch 
-                          checked={notifData[item.id as keyof typeof notifData]} 
+                          checked={notifData[item.id as keyof typeof notifData] as boolean} 
                           onCheckedChange={(val) => setNotifData({ ...notifData, [item.id]: val })} 
                         />
                       </div>
@@ -447,12 +451,31 @@ export default function Me() {
                       { id: 'dailyReport', label: 'Relatório Diário' },
                       { id: 'weeklyReport', label: 'Resumo Semanal' },
                     ].map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/20 transition-colors">
-                        <span className="text-sm font-medium">{item.label}</span>
-                        <Switch 
-                          checked={notifData[item.id as keyof typeof notifData]} 
-                          onCheckedChange={(val) => setNotifData({ ...notifData, [item.id]: val })} 
-                        />
+                      <div key={item.id} className="space-y-2">
+                        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/20 transition-colors">
+                          <span className="text-sm font-medium">{item.label}</span>
+                          <Switch 
+                            checked={notifData[item.id as keyof typeof notifData] as boolean} 
+                            onCheckedChange={(val) => setNotifData({ ...notifData, [item.id]: val })} 
+                          />
+                        </div>
+                        {item.id === 'message' && notifData.message && (
+                          <div className="mx-3 pl-4 border-l-2 border-primary/20 space-y-2 pb-2 animate-in slide-in-from-top-2 duration-300">
+                            <Label className="text-xs font-bold text-muted-foreground">Filtrar Notificações do Painel por:</Label>
+                            <Select
+                              value={notifData.whatsappNotificationFilter || "ALL"}
+                              onValueChange={(val) => setNotifData({ ...notifData, whatsappNotificationFilter: val })}
+                            >
+                              <SelectTrigger className="w-full bg-muted/20 border-border/50 rounded-xl h-9 text-xs">
+                                <SelectValue placeholder="Escolha quais conversas notificar" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ALL">Todas as Conversas</SelectItem>
+                                <SelectItem value="TRACKED_ONLY">Somente Conversas Rastreadas</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
                     ))}
                     <div className="pt-6">

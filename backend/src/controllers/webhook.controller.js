@@ -269,6 +269,26 @@ export const receiveWebhook = async (req, res) => {
           const io = getIO();
           const room = `workspace:${connection.workspaceId}`;
 
+          // Pre-check if this message makes the conversation tracked
+          let isTracked = conversation.isTracked;
+          if (!isTracked && !fromMe && !isGroup) {
+            try {
+              const rules = await prisma.leadTrackingRule.findMany({
+                where: { workspaceId: connection.workspaceId, isActive: true },
+              });
+              const messageBody = body.toLowerCase();
+              const matched = rules.some((rule) => {
+                const keywords = rule.keywords.split(",").map((k) => k.trim().toLowerCase());
+                return keywords.some((k) => messageBody.includes(k));
+              });
+              if (matched) {
+                isTracked = true;
+              }
+            } catch (err) {
+              console.error("Error pre-checking tracking rules:", err);
+            }
+          }
+
           // Standardized Payload for real-time
           const realTimePayload = {
             conversationId: conversation.id,
@@ -279,6 +299,7 @@ export const receiveWebhook = async (req, res) => {
             message: newMsg, // Full message object for safety
             workspaceId: connection.workspaceId,
             timestamp: messageTimestamp,
+            isTracked
           };
 
           io.to(room).emit("message:new", realTimePayload);

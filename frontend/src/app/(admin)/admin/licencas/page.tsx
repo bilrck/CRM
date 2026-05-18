@@ -527,7 +527,7 @@ export default function LicenseManagement() {
                                         >
                                             <option value="MERCADO_PAGO">Mercado Pago</option>
                                             <option value="STRIPE">Stripe</option>
-                                            <option value="PAGARME" disabled>Pagar.me (Em breve)</option>
+                                            <option value="PAGARME">Pagar.me</option>
                                         </select>
                                     </div>
                                     <div className="space-y-2">
@@ -562,10 +562,10 @@ export default function LicenseManagement() {
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label className="font-bold text-slate-700">
-                                            {paymentConfig.provider === "STRIPE" ? "Publishable Key (Chave Pública)" : "Public Key"}
+                                            {paymentConfig.provider === "STRIPE" ? "Publishable Key (Chave Pública)" : paymentConfig.provider === "PAGARME" ? "Public Key (Chave Pública - pk_...)" : "Public Key"}
                                         </Label>
                                         <Input 
-                                            placeholder={paymentConfig.provider === "STRIPE" ? "pk_test_..." : "APP_USR-..."} 
+                                            placeholder={paymentConfig.provider === "STRIPE" ? "pk_test_..." : paymentConfig.provider === "PAGARME" ? "pk_test_..." : "APP_USR-..."} 
                                             className="rounded-xl border-slate-200 py-6"
                                             value={paymentConfig.publicKey || ""}
                                             onChange={e => setPaymentConfig({...paymentConfig, publicKey: e.target.value})}
@@ -573,21 +573,21 @@ export default function LicenseManagement() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="font-bold text-slate-700">
-                                            {paymentConfig.provider === "STRIPE" ? "Secret Key (Chave Privada)" : "Access Token"}
+                                            {paymentConfig.provider === "STRIPE" ? "Secret Key (Chave Privada)" : paymentConfig.provider === "PAGARME" ? "Secret Key (Chave Privada - ak_...)" : "Access Token"}
                                         </Label>
                                         <Input 
                                             type="password"
-                                            placeholder={paymentConfig.provider === "STRIPE" ? "sk_test_..." : "APP_USR-..."} 
+                                            placeholder={paymentConfig.provider === "STRIPE" ? "sk_test_..." : paymentConfig.provider === "PAGARME" ? "ak_test_..." : "APP_USR-..."} 
                                             className="rounded-xl border-slate-200 py-6"
                                             value={paymentConfig.accessToken || ""}
                                             onChange={e => setPaymentConfig({...paymentConfig, accessToken: e.target.value})}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="font-bold text-slate-700">Webhook Secret (Opcional)</Label>
+                                        <Label className="font-bold text-slate-700">Webhook Secret / Hub Key (Opcional)</Label>
                                         <Input 
                                             type="password"
-                                            placeholder="whsec_..." 
+                                            placeholder="whsec_... ou chave do hub" 
                                             className="rounded-xl border-slate-200 py-6"
                                             value={paymentConfig.webhookSecret || ""}
                                             onChange={e => setPaymentConfig({...paymentConfig, webhookSecret: e.target.value})}
@@ -622,7 +622,7 @@ export default function LicenseManagement() {
                             <div>
                                 <h4 className="font-black text-amber-800 text-sm uppercase tracking-wider">Atenção</h4>
                                 <p className="text-amber-700 text-sm mt-1 font-medium">
-                                    Certifique-se de configurar a URL de Webhook no seu painel do {paymentConfig.provider === "STRIPE" ? "Stripe" : "Mercado Pago"} para que as ativações de licença ocorram automaticamente após o pagamento. 
+                                    Certifique-se de configurar a URL de Webhook no seu painel do {paymentConfig.provider === "STRIPE" ? "Stripe" : paymentConfig.provider === "PAGARME" ? "Pagar.me" : "Mercado Pago"} para que as ativações de licença ocorram automaticamente após o pagamento. 
                                     <br/><br/>
                                     <code className="bg-white/50 px-2 py-1 rounded font-mono font-bold text-xs">
                                         {process.env.NEXT_PUBLIC_API_URL}/webhooks/payments

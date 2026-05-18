@@ -68,7 +68,8 @@ export default function PlansPage() {
                     setSelectedMockPlan(plan);
                     setIsMockDialogOpen(true);
                 } else if (data.url) {
-                    toast.info(`Redirecionando para o gateway de pagamento (${data.provider === 'STRIPE' ? 'Stripe' : 'Mercado Pago'})...`);
+                    const providerName = data.provider === 'STRIPE' ? 'Stripe' : data.provider === 'PAGARME' ? 'Pagar.me' : 'Mercado Pago';
+                    toast.info(`Redirecionando para o gateway de pagamento (${providerName})...`);
                     window.location.href = data.url;
                 } else {
                     toast.error("Resposta inválida do servidor");

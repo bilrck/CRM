@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, Info, AlertTriangle, XCircle, CheckCircle2 } from "lucide-react";
 import {
     DropdownMenu,
@@ -58,6 +58,11 @@ export function Notifications() {
     const [unreadCount, setUnreadCount] = useState(0);
     const { currentWorkspace } = useWorkspace();
     const user = useUser();
+    const userRef = useRef(user);
+
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -79,7 +84,7 @@ export function Notifications() {
 
         const onNotificationUpdate = () => {
              fetchNotifications();
-             const isSoundEnabled = user?.notificationSettings?.soundAlert !== false;
+             const isSoundEnabled = userRef.current?.notificationSettings?.soundAlert !== false;
              if (isSoundEnabled) {
                  playNotificationSound();
              }
@@ -87,8 +92,20 @@ export function Notifications() {
 
         const onMessageNew = (data: any) => {
             if (!data.fromMe) {
+                const currentSettings = userRef.current?.notificationSettings || {};
+                
+                // 1. Check if client message notifications are enabled at all
+                const isMessageNotifEnabled = currentSettings.message !== false;
+                if (!isMessageNotifEnabled) return;
+
+                // 2. Check if notifications should filter by tracked conversations
+                const filterType = currentSettings.whatsappNotificationFilter || "ALL";
+                if (filterType === "TRACKED_ONLY" && !data.isTracked) {
+                    return;
+                }
+
                 fetchNotifications();
-                const isSoundEnabled = user?.notificationSettings?.soundAlert !== false;
+                const isSoundEnabled = currentSettings.soundAlert !== false;
                 if (isSoundEnabled) {
                     playNotificationSound();
                 }
@@ -102,7 +119,7 @@ export function Notifications() {
             socket.off("notification:new", onNotificationUpdate);
             socket.off("message:new", onMessageNew);
         };
-    }, [fetchNotifications, user]);
+    }, [fetchNotifications]);
 
     useEffect(() => {
         if (currentWorkspace?.id) {
