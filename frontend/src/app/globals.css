@@ -140,6 +140,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.25 0.05 250);
   --sidebar-ring: oklch(0.65 0.15 220);
+
+  /* Auto-adaptation overrides for common legacy hardcoded classes */
+  .bg-white, .bg-white\/80 {
+    background-color: var(--card) !important;
+  }
+  .bg-slate-50, .bg-gray-50, .bg-zinc-50, .bg-slate-100, .bg-gray-100, .bg-zinc-100 {
+    background-color: var(--background) !important;
+  }
+  .border-gray-200, .border-slate-200, .border-zinc-200, .border-gray-100, .border-slate-100, .border-zinc-100 {
+    border-color: var(--border) !important;
+  }
+  .text-slate-900, .text-gray-900, .text-zinc-900, .text-slate-800, .text-gray-800 {
+    color: var(--foreground) !important;
+  }
+  .text-slate-600, .text-gray-600, .text-zinc-600, .text-slate-500, .text-gray-500, .text-zinc-500 {
+    color: var(--muted-foreground) !important;
+  }
 }
 
 @layer base {

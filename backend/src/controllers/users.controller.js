@@ -224,14 +224,65 @@ export const deleteUser = async (req, res) => {
     return res.status(403).json({ error: "Acesso negado" });
   try {
     const { id } = req.params;
+    const targetUserId = Number(id);
+
     // Impedir auto-deleção
-    if (Number(id) === req.user.id)
+    if (targetUserId === req.user.id)
       return res.status(400).json({ error: "Não pode deletar a si mesmo" });
 
-    await prisma.user.delete({ where: { id: Number(id) } });
+    // 1. Check if user exists
+    const userExists = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: {
+        ownedWorkspaces: true,
+        ownedTeams: true
+      }
+    });
+
+    if (!userExists) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    // 2. Perform all deletions in a transaction to handle constraints
+    await prisma.$transaction(async (tx) => {
+      // Delete child relations
+      await tx.systemLog.deleteMany({ where: { userId: targetUserId } });
+      await tx.notification.deleteMany({ where: { userId: targetUserId } });
+      await tx.licenseActivation.deleteMany({ where: { userId: targetUserId } });
+      await tx.workspaceMember.deleteMany({ where: { userId: targetUserId } });
+      await tx.equipeUser.deleteMany({ where: { userId: targetUserId } });
+      await tx.leadTrackingRule.deleteMany({ where: { userId: targetUserId } });
+      await tx.connection.deleteMany({ where: { userId: targetUserId } });
+      await tx.whatsappConversation.deleteMany({ where: { userId: targetUserId } });
+
+      // Unlink leads
+      await tx.lead.updateMany({
+        where: { userId: targetUserId },
+        data: { userId: null }
+      });
+
+      // Clear teams owned by this user
+      if (userExists.ownedTeams.length > 0) {
+        const teamIds = userExists.ownedTeams.map(t => t.id);
+        await tx.equipeUser.deleteMany({ where: { equipeId: { in: teamIds } } });
+        await tx.equipe.deleteMany({ where: { ownerId: targetUserId } });
+      }
+
+      // Clear workspaces owned by this user
+      if (userExists.ownedWorkspaces.length > 0) {
+        const wsIds = userExists.ownedWorkspaces.map(w => w.id);
+        await tx.workspaceMember.deleteMany({ where: { workspaceId: { in: wsIds } } });
+        await tx.workspace.deleteMany({ where: { ownerId: targetUserId } });
+      }
+
+      // Finally delete the user
+      await tx.user.delete({ where: { id: targetUserId } });
+    });
+
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: "Erro ao deletar usuário" });
+    console.error("Erro ao deletar usuário:", error);
+    return res.status(500).json({ error: `Erro ao deletar usuário: ${error.message}` });
   }
 };
 

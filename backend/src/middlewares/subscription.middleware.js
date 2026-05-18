@@ -24,8 +24,8 @@ export default async function subscriptionMiddleware(req, res, next) {
 
     const now = new Date();
 
-    // 1. Check if ACTIVE
-    if (dbUser.subscriptionStatus === "ACTIVE") {
+    // 1. Check if ACTIVE or CANCELED
+    if (dbUser.subscriptionStatus === "ACTIVE" || dbUser.subscriptionStatus === "CANCELED") {
       if (dbUser.subscriptionExpiresAt && now > dbUser.subscriptionExpiresAt) {
         // Auto-expire
         await prisma.user.update({

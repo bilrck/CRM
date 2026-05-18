@@ -45,16 +45,32 @@ export function SubscriptionBanner() {
   }
 
   // Expired or Canceled
-  if (user.subscriptionStatus === 'EXPIRED' || user.subscriptionStatus === 'CANCELED') {
+  const now = new Date();
+  const isExpired = user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) < now;
+
+  if (user.subscriptionStatus === 'EXPIRED' || (user.subscriptionStatus === 'CANCELED' && isExpired)) {
     return (
       <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4" />
-          <span>Sua assinatura está <strong>{user.subscriptionStatus}</strong>. Seus recursos foram limitados.</span>
+          <span>Sua assinatura está expirada ou cancelada. Seus recursos foram limitados.</span>
         </div>
         <Button size="sm" variant="outline" className="bg-white text-destructive border-white hover:bg-gray-100" asChild>
           <Link href="/assinatura">Renovar Plano</Link>
         </Button>
+      </div>
+    );
+  }
+
+  if (user.subscriptionStatus === 'CANCELED' && !isExpired) {
+    const end = user.subscriptionExpiresAt ? new Date(user.subscriptionExpiresAt) : null;
+    const dateStr = end ? end.toLocaleDateString('pt-BR') : "N/A";
+    return (
+      <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4" />
+          <span>Sua assinatura foi cancelada. Seu acesso continuará liberado até <strong>{dateStr}</strong>. Nenhuma nova cobrança será gerada.</span>
+        </div>
       </div>
     );
   }

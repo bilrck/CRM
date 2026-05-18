@@ -68,14 +68,27 @@ export const chat = async (req, res) => {
       return res.status(400).json({ error: "API Key não configurada. Por favor, insira uma chave válida." });
     }
 
-    // 1. Get User Context (Enriched)
+    // 1. Fetch Conversational History for Memory BEFORE saving current message
+    const recentHistory = await prisma.aiChatHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 12
+    });
+    const sortedHistory = recentHistory.reverse();
+
+    // 2. Save current User Message to DB
+    await prisma.aiChatHistory.create({
+      data: { userId, role: 'user', content: message }
+    });
+
+    // 3. Get User Context (Enriched)
     let leads = [];
     let connections = [];
     let user = null;
     let metrics = {
       totalLeads: 0,
       totalValue: 0,
-      leadsByStatus: {}
+      leadsByStage: {}
     };
 
     try {
@@ -138,7 +151,6 @@ export const chat = async (req, res) => {
       - Páginas conectadas: ${metaConnection.pages.length}
 ${pagesInfo}`;
 
-        // 🔥 Dynamic Context: Fetch live report summary ONLY if user asks about Ads/Finance/Businesses
         const adKeywords = ["anúncio", "campanha", "gasto", "meta", "facebook", "ads", "performance", "ctr", "investimento", "dinheiro", "valor", "portfólio", "business", "empresa", "conta", "gerenciador"];
         if (adKeywords.some(k => message.toLowerCase().includes(k)) || message.length > 50) {
           try {
@@ -147,7 +159,6 @@ ${pagesInfo}`;
               metaService.getBusinesses(metaConnection.accessToken)
             ]);
 
-            // Enrich businesses with assets for AI
             const businessesWithAssets = await Promise.all(businesses.map(async (b) => {
               try {
                 const assets = await metaService.getBusinessAssets(b.id, metaConnection.accessToken);
@@ -186,53 +197,54 @@ ${pagesInfo}`;
         }
       }
 
-      // Store metaContext in metrics for use below
       metrics.metaContext = metaContext;
     } catch (dbError) {
       console.error("Erro ao buscar contexto para IA:", dbError);
     }
 
-    // 1.1. Check if it's a simple greeting to avoid data dump
-    const isGreeting = /^(oi|olá|ola|bom dia|boa tarde|boa noite|hello|hi|ei|opa)$/i.test(message.trim());
+    // 4. Construct Highly Human-centric System Instructions & Context
+    const systemInstruction = `
+Você é a **Rastreia AI**, a copiloto e colega de equipe virtual inteligente do usuário no Rastreia.ai CRM.
 
-    const context = `
-      DADOS DO SISTEMA (USUÁRIO ${user?.name}):
-      - Total de Leads no CRM (Funil): ${metrics.totalLeads}
-      - Valor Acumulado no Funil: R$ ${metrics.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-      - Distribuição por Estágio: ${JSON.stringify(metrics.leadsByStage)}
-      - Conexões WhatsApp Ativas: ${connections.length}
-      
-      CENTRAL DE LEADS META (NOVO):
-      - Total de Leads Unificados: ${metrics.totalUnifiedLeads || 0}
-      
-${metrics.metaContext || "      - Meta Ads: não conectado ou erro na sincronização"}
+### DIRETRIZES DE PERSONALIDADE E TOM (AJA COMO UMA HUMANA):
+1. **Calorosa, Empática e Amigável**: Converse de maneira natural, simpática e profissional. Use parágrafos limpos, listas organizadas e evite soar fria ou puramente estatística.
+2. **Alta Conversação**: Se o usuário fizer perguntas cotidianas, dúvidas gerais, ou quiser debater estratégias de negócios/vendas/marketing, responda com criatividade, profundidade e carisma em vez de apenas repetir números de CRM.
+3. **Didática de Suporte**: Se o usuário perguntar como fazer algo no sistema, guie-o com explicações passo a passo detalhadas e fáceis de seguir.
+4. **Comportamento com Saudações**: Se o usuário disser apenas "Olá", "Oi" ou similar, dê boas-vindas calorosas e pergunte como pode ajudar hoje, sem jogar um resumo massivo de dados de cara (a não ser que ele peça).
 
-      DETALHES DOS LEADS RECENTES (Últimos 15):
-      ${leads.map(l => `- ${l.name} (${l.phone || 'Sem tel'}) - Valor: R$ ${Number(l.value || 0).toFixed(2)} - Estágio: ${l.stage?.name || l.status}`).join('\n')}
-
-      INSTRUÇÕES CRÍTICAS PARA O ASSISTENTE:
-      1. Você é o Assistente Rastreia AI. Seja direto, amigável e profissional.
-      2. COMPORTAMENTO DE SAUDAÇÃO: Se o usuário disser apenas "Olá", "Oi" ou similar, responda de forma breve e educada, perguntando como pode ajudar. NÃO faça um resumo completo de dados a menos que seja solicitado ou relevante para a conversa.
-      3. CENTRAL DE LEADS: O sistema agora possui uma "Central de Leads Meta" que unifica leads de todas as páginas e BMs. Mencione isso se o usuário perguntar sobre leads que "ainda não caíram" ou sobre sincronização.
-      4. PRECISÃO: Use os dados numéricos do contexto acima com precisão. Se houver discrepância entre leads no funil (${metrics.totalLeads}) e na Central de Leads (${metrics.totalUnifiedLeads || 0}), explique que os leads da Central precisam ser convertidos ou movidos para o funil.
-      5. LINKS ÚTEIS: 
-         - Central de Leads: /relatorios/meta/leads-center
-         - Relatórios Meta: /relatorios/meta
-         - Configurações: /meta/settings
+### CONHECIMENTO DO CRM RASTREIA.AI:
+1. **Workspaces**: Ambientes multilocatários 100% isolados. O usuário pode alternar de workspace facilmente no topo do painel.
+2. **Leads e Funis (Kanban)**: Os leads fluem por colunas visuais de etapas de funil (/funis). Cada lead possui tags, anotações, e valores financeiros (valor estimado, valor real ganho).
+3. **Integração WhatsApp**: Gerida em /conexoes. Sincroniza com a Evolution API para ler conversas, importar chats e trocar mensagens diretamente.
+4. **Meta Ads & Central de Leads Meta**: Captura leads de formulários de anúncios de forma automatizada. Todos caem primeiro na "Central de Leads Meta" (/relatorios/meta/leads-center) para que o usuário possa revisá-los e qualificá-los antes de enviá-los ao funil ativo.
+5. **Assinaturas & Cancelamento**: Painel de faturamento em /assinatura. Em caso de cancelamento da recorrência, o usuário **NÃO** perde o acesso imediatamente; ele continua ativo com todos os recursos liberados até a data final de validade da assinatura (subscriptionExpiresAt), garantindo total respeito ao consumidor.
+6. **Administração de Usuários**: Painel administrativo (/admin/sistema) onde exclusões de usuários são feitas de forma transacional e segura em cascata (limpando pivot tables e logs sem falhas de banco).
     `;
 
-    // 2. Save User Message
-    await prisma.aiChatHistory.create({
-      data: { userId, role: 'user', content: message }
-    });
+    const context = `
+DADOS ATUAIS DO WORKSPACE (USUÁRIO: ${user?.name || "N/A"}):
+- Total de Leads no CRM: ${metrics.totalLeads}
+- Valor Acumulado no Funil: R$ ${metrics.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+- Distribuição por Estágio: ${JSON.stringify(metrics.leadsByStage)}
+- Conexões WhatsApp Ativas: ${connections.length}
+- Leads Unificados na Central Meta: ${metrics.totalUnifiedLeads || 0}
+${metrics.metaContext || "- Meta Ads: não conectado"}
+
+DETALHES DE LEADS RECENTES:
+${leads.map(l => `- ${l.name} (${l.phone || 'Sem tel'}) - Valor: R$ ${Number(l.value || 0).toFixed(2)} - Status/Estágio: ${l.stage?.name || l.status}`).join('\n')}
+
+LINKS ÚTEIS DO SISTEMA:
+- Central de Leads: /relatorios/meta/leads-center
+- Relatórios Meta: /relatorios/meta
+- Funil / Kanban: /funis
+- Gestão de Assinatura: /assinatura
+    `;
 
     let aiResponse = "";
 
     try {
       if (settings.provider === 'google') {
         const genAI = new GoogleGenerativeAI(settings.apiKey);
-        
-        // Garantir que o nome do modelo não tenha o prefixo 'models/' duplicado
         const modelName = settings.modelName?.replace('models/', '') || "gemini-1.5-pro";
         
         const model = genAI.getGenerativeModel({ 
@@ -248,24 +260,39 @@ ${metrics.metaContext || "      - Meta Ads: não conectado ou erro na sincroniza
             topP: 0.95,
             topK: 40,
             maxOutputTokens: 8192,
-          }
+          },
+          systemInstruction: systemInstruction + "\n\n" + (settings.systemPrompt || "") + "\n\nCONTEXTO DO CRM DO USUÁRIO:\n" + context
         });
-        
-        const prompt = `${settings.systemPrompt || "Você é um assistente de CRM."}\n\nCONTEXTO DO USUÁRIO:\n${context}\n\nMensagem do usuário: ${message}`;
-        
-        const result = await model.generateContent(prompt);
+
+        // Map conversational memory to Gemini history format
+        const geminiHistory = sortedHistory.map(h => ({
+          role: h.role === 'user' ? 'user' : 'model',
+          parts: [{ text: h.content }]
+        }));
+
+        const chatSession = model.startChat({
+          history: geminiHistory,
+        });
+
+        const result = await chatSession.sendMessage(message);
         const response = await result.response;
         aiResponse = response.text();
       } 
       else if (settings.provider === 'openai') {
         const openai = new OpenAI({ apiKey: settings.apiKey });
+        const messagesToSend = [
+          { role: "system", content: systemInstruction + "\n\n" + (settings.systemPrompt || "") + "\n\nCONTEXTO DO CRM DO USUÁRIO:\n" + context },
+          ...sortedHistory.map(h => ({
+            role: h.role === 'user' ? 'user' : 'assistant',
+            content: h.content
+          })),
+          { role: "user", content: message }
+        ];
+
         const completion = await openai.chat.completions.create({
           model: settings.modelName || "gpt-4",
-          messages: [
-            { role: "system", content: (settings.systemPrompt || "") + "\n\nCONTEXTO DO USUÁRIO:\n" + context },
-            { role: "user", content: message }
-          ],
-          temperature: settings.temperature
+          messages: messagesToSend,
+          temperature: settings.temperature || 0.7
         });
         aiResponse = completion.choices[0].message.content;
       }
@@ -273,18 +300,14 @@ ${metrics.metaContext || "      - Meta Ads: não conectado ou erro na sincroniza
         return res.status(400).json({ error: "Provedor de IA não suportado no momento." });
       }
     } catch (apiError) {
-      console.error(`Erro detalhado na API de IA (${settings.provider}):`, {
-        message: apiError.message,
-        stack: apiError.stack,
-        response: apiError.response?.data || apiError.response
-      });
+      console.error(`Erro detalhado na API de IA (${settings.provider}):`, apiError);
       return res.status(500).json({ 
         error: `Erro na API da ${settings.provider}. Verifique sua API Key e cotas.`,
         details: apiError.message 
       });
     }
 
-    // 3. Save AI Response
+    // 5. Save AI Response to DB
     const savedResponse = await prisma.aiChatHistory.create({
       data: { userId, role: 'assistant', content: aiResponse }
     });

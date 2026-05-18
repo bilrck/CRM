@@ -274,10 +274,10 @@ export const forgotPassword = async (req, res) => {
       "Recuperação de Senha - Rastreia AI",
       `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #10b981;">Rastreia AI</h2>
+        <h2 style="color: #2563eb;">Rastreia AI</h2>
         <p>Olá, <strong>${user.name}</strong>.</p>
         <p>Você solicitou a recuperação de senha. Clique no botão abaixo para redefinir sua senha:</p>
-        <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0;">Redefinir Senha</a>
+        <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0;">Redefinir Senha</a>
         <p style="font-size: 12px; color: #64748b;">Este link expira em 1 hora. Se você não solicitou isso, ignore este email.</p>
       </div>
       `

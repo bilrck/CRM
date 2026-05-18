@@ -204,7 +204,7 @@ export function AppSidebar() {
 
             // Check modules
             if (item.url === "/whatsapp" && systemConfig?.modules?.whatsapp === false) return false;
-            if (item.url === "/rastreamento" && systemConfig?.modules?.googleAds === false) return false;
+            if (item.url === "/rastreamento" && systemConfig?.modules?.whatsapp === false) return false;
 
             // Check Subscription for non-admins
             if (user?.role !== "ADMIN") {

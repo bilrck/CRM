@@ -29,8 +29,8 @@ export default function CookieBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6 md:max-w-2xl md:mx-auto md:bottom-6">
-      <div className="bg-white dark:bg-slate-900 border border-emerald-100 dark:border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:items-center relative">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6 md:max-w-2xl md:mx-auto md:bottom-6 print:hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:items-center relative">
         <button 
           onClick={handleAcceptEssential}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -39,19 +39,19 @@ export default function CookieBanner() {
           <X size={18} />
         </button>
         
-        <div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
-          <Shield className="text-emerald-600 dark:text-emerald-400" size={24} />
+        <div className="bg-blue-100 dark:bg-blue-900/30 w-12 h-12 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
+          <Shield className="text-blue-600 dark:text-blue-400" size={24} />
         </div>
         
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 sm:hidden">
-            <Shield className="text-emerald-600 dark:text-emerald-400" size={18} />
+            <Shield className="text-blue-600 dark:text-blue-400" size={18} />
             <h3 className="font-semibold text-slate-900 dark:text-white">Privacidade e Cookies</h3>
           </div>
           <h3 className="font-semibold text-slate-900 dark:text-white hidden sm:block">Privacidade e Cookies</h3>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
             Utilizamos cookies para melhorar sua experiência e analisar nosso tráfego. Ao continuar navegando, você concorda com a nossa{' '}
-            <Link href="/privacidade" className="text-emerald-600 hover:underline font-medium">
+            <Link href="/privacidade" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
               Política de Privacidade
             </Link>.
           </p>
@@ -69,7 +69,7 @@ export default function CookieBanner() {
           <Button 
             size="sm" 
             onClick={handleAcceptAll}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             Aceitar Todos
           </Button>

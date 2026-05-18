@@ -310,62 +310,44 @@ export const cancelSubscription = async (req, res) => {
             return res.status(404).json({ error: "Usuário não encontrado" });
         }
 
-        if (!user.gatewaySubscriptionId) {
-            // Local sandbox or no active recurring gateway subscription
-            await prisma.user.update({
-                where: { id: userId },
-                data: { 
-                    subscriptionStatus: "CANCELED", 
-                    billingStatus: "inativo"
+        // 1. If they have a recurring gateway subscription, trigger gateway cancellation
+        if (user.gatewaySubscriptionId) {
+            const paymentConfig = await prisma.paymentConfig.findFirst({
+                where: { isActive: true }
+            });
+
+            if (paymentConfig && paymentConfig.accessToken) {
+                const { provider, accessToken } = paymentConfig;
+
+                if (provider === "STRIPE") {
+                    const resStripe = await fetch(`https://api.stripe.com/v1/subscriptions/${user.gatewaySubscriptionId}`, {
+                        method: "DELETE",
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                        }
+                    });
+                    const dataStripe = await resStripe.json();
+                    if (!resStripe.ok) {
+                        console.error("Erro ao cancelar assinatura no Stripe:", dataStripe);
+                    }
+                } else if (provider === "MERCADO_PAGO" || provider === "MERCADOPAGO") {
+                    const resMP = await fetch(`https://api.mercadopago.com/preapproval/${user.gatewaySubscriptionId}`, {
+                        method: "PUT",
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ status: "cancelled" })
+                    });
+                    const dataMP = await resMP.json();
+                    if (!resMP.ok) {
+                        console.error("Erro ao cancelar preapproval no Mercado Pago:", dataMP);
+                    }
                 }
-            });
-            return res.json({ success: true, message: "Assinatura cancelada localmente com sucesso." });
-        }
-
-        const paymentConfig = await prisma.paymentConfig.findFirst({
-            where: { isActive: true }
-        });
-
-        if (!paymentConfig || !paymentConfig.accessToken) {
-            // Fallback: If gateway config is deleted or inactive, just cancel it locally
-            await prisma.user.update({
-                where: { id: userId },
-                data: {
-                    subscriptionStatus: "CANCELED",
-                    billingStatus: "inativo"
-                }
-            });
-            return res.json({ success: true, message: "Assinatura cancelada localmente com sucesso (gateway indisponível)." });
-        }
-
-        const { provider, accessToken } = paymentConfig;
-
-        if (provider === "STRIPE") {
-            const resStripe = await fetch(`https://api.stripe.com/v1/subscriptions/${user.gatewaySubscriptionId}`, {
-                method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                }
-            });
-            const dataStripe = await resStripe.json();
-            if (!resStripe.ok) {
-                console.error("Erro ao cancelar assinatura no Stripe:", dataStripe);
-            }
-        } else if (provider === "MERCADO_PAGO" || provider === "MERCADOPAGO") {
-            const resMP = await fetch(`https://api.mercadopago.com/preapproval/${user.gatewaySubscriptionId}`, {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ status: "cancelled" })
-            });
-            const dataMP = await resMP.json();
-            if (!resMP.ok) {
-                console.error("Erro ao cancelar preapproval no Mercado Pago:", dataMP);
             }
         }
 
+        // 2. Perform common local DB update
         await prisma.user.update({
             where: { id: userId },
             data: {
@@ -373,6 +355,50 @@ export const cancelSubscription = async (req, res) => {
                 billingStatus: "inativo",
             }
         });
+
+        // 3. Send professional cancellation email
+        try {
+            const expDateStr = user.subscriptionExpiresAt 
+                ? new Date(user.subscriptionExpiresAt).toLocaleDateString('pt-BR') 
+                : 'N/A';
+                
+            const htmlContent = `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h2 style="color: #2563eb; margin-bottom: 5px;">Rastreia.ai</h2>
+                        <p style="color: #64748b; font-size: 14px; margin: 0;">Confirmação de Cancelamento de Assinatura</p>
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 20px;" />
+                    <p style="color: #334155; font-size: 16px; line-height: 1.5;">Olá, <strong>${user.name}</strong>,</p>
+                    <p style="color: #334155; font-size: 15px; line-height: 1.5;">
+                        Confirmamos que a sua assinatura recorrente do <strong>Rastreia.ai CRM</strong> foi cancelada com sucesso a seu pedido.
+                    </p>
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #475569;"><strong>Detalhes importantes:</strong></p>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.6;">
+                            <li>O acesso completo aos seus recursos e workspaces continuará ativo e liberado até o dia <strong>${expDateStr}</strong>.</li>
+                            <li>Nenhuma nova cobrança automática será realizada no seu cartão de crédito.</li>
+                            <li>Após a data de expiração, a sua conta entrará no modo inativo, mas seus dados ficarão salvos caso decida retornar futuramente.</li>
+                        </ul>
+                    </div>
+                    <p style="color: #334155; font-size: 15px; line-height: 1.5;">
+                        Lamentamos ver você partir! Se tiver qualquer dúvida ou precisar de ajuda para exportar seus dados, responda a este email ou entre em contato com nosso suporte técnico.
+                    </p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-top: 30px; margin-bottom: 15px;" />
+                    <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
+                        Este é um email transacional automático enviado por Rastreia.ai CRM.
+                    </p>
+                </div>
+            `;
+
+            await sendMail(
+                user.email,
+                "Rastreia.ai - Assinatura Cancelada com Sucesso",
+                htmlContent
+            );
+        } catch (emailError) {
+            console.error("Falha ao enviar email de cancelamento:", emailError);
+        }
 
         return res.json({ success: true, message: "Assinatura cancelada com sucesso." });
     } catch (error) {
