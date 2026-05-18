@@ -1,6 +1,7 @@
 import prisma from "../config/prisma.js";
 import { logger } from "../utils/logger.js";
 import { sendMessage, sendMedia } from "../services/evolution.service.js";
+import * as notificationsService from "../services/notifications.service.js";
 
 export const receiveWebhook = async (req, res) => {
   try {
@@ -307,8 +308,18 @@ export const receiveWebhook = async (req, res) => {
           console.log(
             `🚀 Emitindo message:new para sala ${room}, conversa ${conversation.id}`,
           );
+
+          if (!fromMe) {
+            await notificationsService.notifyWorkspace(connection.workspaceId, {
+              title: `Nova mensagem de ${conversation.name || remoteJid.split("@")[0]}`,
+              message: body.substring(0, 100) || "Nova mensagem recebida",
+              type: "INFO",
+              eventKey: "message",
+              isTracked: isTracked
+            });
+          }
         } catch (socketError) {
-          console.error("Erro ao emitir socket:", socketError);
+          console.error("Erro ao emitir socket/notificação:", socketError);
         }
       }
 

@@ -65,6 +65,13 @@ interface LeadDetail {
   stage?: { name: string };
   documents: LeadDocument[];
   tasks: LeadTask[];
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  neighborhood?: string | null;
+  zipCode?: string | null;
+  country?: string | null;
+  customFields?: Record<string, any> | null;
 }
 
 export default function LeadDetailsPage() {
@@ -86,6 +93,11 @@ export default function LeadDetailsPage() {
     reminderAt: "",
     reminderType: "SYSTEM",
   });
+
+  // WhatsApp state
+  const [isWhatsappDialogOpen, setIsWhatsappDialogOpen] = useState(false);
+  const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
   const fetchLead = useCallback(async () => {
     if (!currentWorkspace?.id || !id) return;
@@ -213,6 +225,61 @@ export default function LeadDetailsPage() {
     }
   };
 
+  const handleOpenWhatsappDialog = () => {
+    if (!lead || !lead.phone) {
+      toast.error("O lead não possui telefone cadastrado.");
+      return;
+    }
+    setWhatsappMessage("");
+    setIsWhatsappDialogOpen(true);
+  };
+
+  const handleSendWhatsappCrm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lead || !lead.phone || !whatsappMessage.trim() || !currentWorkspace?.id) return;
+
+    try {
+      setSendingWhatsapp(true);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/what/messages/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-workspace-id": currentWorkspace.id.toString(),
+        },
+        body: JSON.stringify({
+          phone: lead.phone,
+          body: whatsappMessage,
+          leadId: lead.id,
+          leadName: lead.name
+        }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Erro ao enviar mensagem pelo CRM");
+      }
+
+      toast.success("Mensagem enviada via CRM com sucesso!");
+      setIsWhatsappDialogOpen(false);
+      setWhatsappMessage("");
+      fetchLead();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao enviar mensagem via CRM");
+    } finally {
+      setSendingWhatsapp(false);
+    }
+  };
+
+  const handleSendWhatsappDirect = () => {
+    if (!lead || !lead.phone || !whatsappMessage.trim()) return;
+    const cleanPhone = lead.phone.replace(/\D/g, "");
+    const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(url, "_blank");
+    setIsWhatsappDialogOpen(false);
+    setWhatsappMessage("");
+  };
+
   if (loading) return <div className="p-8 text-center font-bold text-blue-600 animate-pulse">Carregando detalhes do lead...</div>;
   if (!lead) return null;
 
@@ -224,7 +291,7 @@ export default function LeadDetailsPage() {
           <ChevronLeft className="mr-2 h-5 w-5" /> Voltar
         </Button>
         <div className="flex gap-2">
-          <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold shadow-lg">
+          <Button onClick={handleOpenWhatsappDialog} className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold shadow-lg">
             <MessageSquare className="mr-2 h-4 w-4" /> WhatsApp
           </Button>
           <Button variant="outline" className="rounded-xl font-bold border-slate-200">
@@ -281,8 +348,21 @@ export default function LeadDetailsPage() {
                     <MapPin className="h-5 w-5 text-blue-500 mr-4 mt-1" />
                     <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">Endereço</p>
-                      <p className="font-bold text-slate-700">
-                        {lead.city ? `${lead.city}, ${lead.state}` : "Localização não cadastrada"}
+                      <p className="font-bold text-slate-700 text-sm leading-relaxed">
+                        {lead.street ? (
+                          <>
+                            {lead.street}, {lead.number || "S/N"}
+                            {lead.complement ? ` - ${lead.complement}` : ""}
+                            <br />
+                            {lead.neighborhood ? `${lead.neighborhood} - ` : ""}
+                            {lead.city ? `${lead.city}/${lead.state || ""}` : ""}
+                            {lead.zipCode ? ` - CEP: ${lead.zipCode}` : ""}
+                          </>
+                        ) : lead.city ? (
+                          `${lead.city}, ${lead.state || ""}`
+                        ) : (
+                          "Localização não cadastrada"
+                        )}
                       </p>
                     </div>
                   </div>
@@ -294,6 +374,25 @@ export default function LeadDetailsPage() {
                   <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Observações</h3>
                   <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 text-slate-600 font-medium leading-relaxed italic">
                     "{lead.observations}"
+                  </div>
+                </div>
+              )}
+
+              {lead.customFields && Object.keys(lead.customFields).length > 0 && (
+                <div className="mt-10 pt-10 border-t border-slate-100 space-y-6">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Campos Personalizados</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(lead.customFields).map(([key, val]) => (
+                      <div key={key} className="flex items-center p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-blue-50 border border-transparent hover:border-blue-100">
+                        <Tag className="h-5 w-5 text-blue-500 mr-4" />
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">{key}</p>
+                          <p className="font-bold text-slate-700">
+                            {typeof val === "boolean" ? (val ? "Sim" : "Não") : String(val || "Não informado")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -491,6 +590,56 @@ export default function LeadDetailsPage() {
             <DialogFooter className="pt-4">
               <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 rounded-2xl">
                 Agendar Agora
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp Message Dialog */}
+      <Dialog open={isWhatsappDialogOpen} onOpenChange={setIsWhatsappDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <MessageSquare className="h-6 w-6 text-green-500" />
+              Enviar WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSendWhatsappCrm} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Destinatário</label>
+              <Input 
+                value={`${lead.name} (${lead.phone || ""})`} 
+                disabled 
+                className="rounded-xl border-slate-200 bg-slate-50 font-medium text-slate-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Sua Mensagem</label>
+              <Textarea 
+                required
+                value={whatsappMessage} 
+                onChange={(e) => setWhatsappMessage(e.target.value)} 
+                placeholder="Escreva sua mensagem aqui..."
+                className="rounded-xl border-slate-200 min-h-[120px]"
+              />
+            </div>
+            <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={handleSendWhatsappDirect}
+                disabled={!whatsappMessage.trim() || sendingWhatsapp}
+                className="flex-1 rounded-2xl py-6 font-bold border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+              >
+                Abrir no WhatsApp
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={!whatsappMessage.trim() || sendingWhatsapp}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-6 rounded-2xl"
+              >
+                {sendingWhatsapp ? "Enviando..." : "Disparar via CRM"}
               </Button>
             </DialogFooter>
           </form>

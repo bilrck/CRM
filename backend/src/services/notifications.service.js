@@ -94,6 +94,7 @@ export const notifyUser = async ({
   message,
   type = "INFO",
   eventKey = "newLead", // mapped to notificationSettings keys: newLead, conversion, message, etc.
+  isTracked = false
 }) => {
   try {
     // 1. Get User and Settings
@@ -110,6 +111,15 @@ export const notifyUser = async ({
     if (!user) return;
 
     const settings = user.notificationSettings || {};
+
+    // Filter incoming message events by user settings
+    if (eventKey === "message") {
+      if (settings.message === false) return; // Skip if disabled globally
+      const filterType = settings.whatsappNotificationFilter || "ALL";
+      if (filterType === "TRACKED_ONLY" && !isTracked) {
+        return; // Skip if user only wants tracked conversation notifications and this isn't one
+      }
+    }
     
     // Helper to check if a specific channel & event is enabled
     // If setting is missing, we assume true for panel/email and false for whatsapp
@@ -176,7 +186,7 @@ export const notifyUser = async ({
 /**
  * Sends a notification to all members of a workspace.
  */
-export const notifyWorkspace = async (workspaceId, { title, message, type, eventKey }) => {
+export const notifyWorkspace = async (workspaceId, { title, message, type, eventKey, isTracked }) => {
   try {
     const members = await prisma.workspaceMember.findMany({
       where: { workspaceId },
@@ -190,7 +200,8 @@ export const notifyWorkspace = async (workspaceId, { title, message, type, event
         title,
         message,
         type,
-        eventKey
+        eventKey,
+        isTracked
       });
     }
   } catch (error) {

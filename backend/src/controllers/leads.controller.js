@@ -4,7 +4,7 @@ import { executeAutomations } from "./automations.controller.js";
 
 export const createLead = async (req, res) => {
   try {
-    const { name, email, phone, tags, value, status, source, customFields } = req.body;
+    const { name, email, phone, tags, value, status, source, customFields, street, number, complement, neighborhood, city, state, zipCode, country } = req.body;
 
     if (!req.workspaceId)
       return res.status(400).json({ error: "Workspace não identificado" });
@@ -23,6 +23,14 @@ export const createLead = async (req, res) => {
         customFields: customFields || {},
         funnelId: req.body.funnelId ? Number(req.body.funnelId) : null,
         stageId: req.body.stageId ? Number(req.body.stageId) : null,
+        street: street || null,
+        number: number || null,
+        complement: complement || null,
+        neighborhood: neighborhood || null,
+        city: city || null,
+        state: state || null,
+        zipCode: zipCode || null,
+        country: country || "Brasil",
       },
     });
 
@@ -136,7 +144,7 @@ export const deleteLeadDocument = async (req, res) => {
 
 export const updateLead = async (req, res) => {
   const id = Number(req.params.id);
-  const { name, email, phone, tags, status, value, source, customFields } = req.body;
+  const { name, email, phone, tags, status, value, source, customFields, street, number, complement, neighborhood, city, state, zipCode, country } = req.body;
 
   // Verifica permissão antes de update
   const existing = await prisma.lead.findUnique({ where: { id } });
@@ -160,6 +168,14 @@ export const updateLead = async (req, res) => {
       value: value !== undefined ? Number(value) : undefined,
       funnelId: req.body.funnelId ? Number(req.body.funnelId) : undefined,
       stageId: req.body.stageId ? Number(req.body.stageId) : undefined,
+      street: street !== undefined ? street : undefined,
+      number: number !== undefined ? number : undefined,
+      complement: complement !== undefined ? complement : undefined,
+      neighborhood: neighborhood !== undefined ? neighborhood : undefined,
+      city: city !== undefined ? city : undefined,
+      state: state !== undefined ? state : undefined,
+      zipCode: zipCode !== undefined ? zipCode : undefined,
+      country: country !== undefined ? country : undefined,
       nextFollowUpDate: req.body.nextFollowUpDate !== undefined
         ? (req.body.nextFollowUpDate === null ? null : new Date(req.body.nextFollowUpDate))
         : undefined,

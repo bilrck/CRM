@@ -6,6 +6,7 @@ import {
   getEvolutionMediaBuffer,
 } from "../services/s3.service.js";
 import { request, ExternalApiError } from "../utils/api-client.js";
+import { sendMessage } from "../services/evolution.service.js";
 
 // Listar conversas (com filtros de status/responsável)
 export const getConversations = async (req, res) => {
@@ -387,24 +388,73 @@ export const getMessages = async (req, res) => {
 // Enviar mensagem (Texto simples por enquanto)
 export const sendWhatsappMessage = async (req, res) => {
   try {
-    const { conversationId, body } = req.body;
+    const { conversationId, body, phone, leadId, leadName } = req.body;
     const { id: userId } = req.user;
 
-    const conversation = await prisma.whatsappConversation.findUnique({
-      where: { id: Number(conversationId) },
-    });
+    let conversation = null;
 
-    if (!conversation)
-      return res.status(404).json({ error: "Conversa não encontrada" });
+    if (conversationId) {
+      conversation = await prisma.whatsappConversation.findUnique({
+        where: { id: Number(conversationId) },
+      });
 
-    // Verificação de Workspace
-    if (
-      conversation.workspaceId !== req.workspaceId &&
-      req.user.role !== "ADMIN"
-    ) {
-      return res
-        .status(403)
-        .json({ error: "Acesso negado: Conversa pertence a outro workspace" });
+      if (!conversation)
+        return res.status(404).json({ error: "Conversa não encontrada" });
+
+      // Verificação de Workspace
+      if (
+        conversation.workspaceId !== req.workspaceId &&
+        req.user.role !== "ADMIN"
+      ) {
+        return res
+          .status(403)
+          .json({ error: "Acesso negado: Conversa pertence a outro workspace" });
+      }
+    } else if (phone) {
+      // Formatar JID
+      const cleanPhone = phone.replace(/\D/g, "");
+      if (!cleanPhone) {
+        return res.status(400).json({ error: "Telefone inválido" });
+      }
+      const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+
+      // Buscar se já existe conversa no workspace
+      conversation = await prisma.whatsappConversation.findFirst({
+        where: { remoteJid, workspaceId: req.workspaceId },
+      });
+
+      if (!conversation) {
+        // Obter primeira conexão ativa
+        const connection = await prisma.connection.findFirst({
+          where: {
+            provider: "evolution",
+            status: "connected",
+            workspaceId: req.workspaceId,
+          },
+        });
+
+        if (!connection) {
+          return res.status(400).json({
+            error: "Nenhuma conexão Evolution ativa encontrada para envio automático do sistema.",
+          });
+        }
+
+        conversation = await prisma.whatsappConversation.create({
+          data: {
+            remoteJid,
+            name: leadName || phone,
+            status: "OPEN",
+            connectionId: connection.id,
+            userId,
+            workspaceId: req.workspaceId,
+            leadId: leadId ? Number(leadId) : null,
+            lastMessage: body.substring(0, 100),
+            lastMessageAt: new Date(),
+          },
+        });
+      }
+    } else {
+      return res.status(400).json({ error: "Parâmetros insuficientes: informe conversationId ou phone." });
     }
 
     // Buscar Conexão Específica desta conversa
@@ -421,7 +471,7 @@ export const sendWhatsappMessage = async (req, res) => {
         where: {
           provider: "evolution",
           status: "connected",
-          workspaceId: req.workspaceId, // Updated
+          workspaceId: req.workspaceId,
         },
       });
     }
@@ -433,7 +483,6 @@ export const sendWhatsappMessage = async (req, res) => {
     }
 
     // Enviar via Evolution
-    // Lembre-se: apiSecret = URL, apiKey = APIKey
     const evoSent = await sendMessage(
       connection.apiSecret,
       connection.apiKey,
@@ -453,19 +502,20 @@ export const sendWhatsappMessage = async (req, res) => {
       connection,
     );
 
-    // Garantir status OPEN
+    // Garantir status OPEN e vincular leadId se houver
     await prisma.whatsappConversation.update({
       where: { id: conversation.id },
       data: {
         status:
           conversation.status === "PENDING" ? "OPEN" : conversation.status,
+        leadId: leadId && !conversation.leadId ? Number(leadId) : undefined,
       },
     });
 
     return res.json(message);
   } catch (error) {
     console.error("Erro ao enviar mensagem:", error);
-    return res.status(500).json({ error: "Erro ao enviar mensagem" });
+    return res.status(500).json({ error: "Erro ao enviar mensagem: " + error.message });
   }
 };
 

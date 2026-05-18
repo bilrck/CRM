@@ -105,6 +105,13 @@ export default function Leads() {
     value: 0,
     funnelId: "",
     stageId: "",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    zipCode: "",
     customFields: {} as Record<string, any>
   });
   
@@ -200,7 +207,7 @@ export default function Leads() {
         toast.success(editingLead ? "Lead atualizado!" : "Lead criado!");
         setIsDialogOpen(false);
         setEditingLead(null);
-        setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "", customFields: {} });
+        setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "", zipCode: "", customFields: {} });
         fetchLeads();
       } else {
         toast.error("Erro ao salvar lead");
@@ -583,7 +590,7 @@ export default function Leads() {
             className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto rounded-xl shadow-sm"
             onClick={() => {
               setEditingLead(null);
-              setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "", customFields: {} });
+              setFormData({ name: "", email: "", phone: "", source: "", status: "new", value: 0, funnelId: "", stageId: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "", zipCode: "", customFields: {} });
               if(funnels.length > 0) {
                   setFormData(prev => ({ ...prev, funnelId: funnels[0].id.toString() }));
               }
@@ -784,9 +791,16 @@ export default function Leads() {
                               source: lead.source || "",
                               status: lead.status,
                               value: Number(lead.value) || 0,
-                               funnelId: lead.funnelId?.toString() || "",
-                               stageId: lead.stageId?.toString() || "",
-                               customFields: lead.customFields || {}
+                              funnelId: lead.funnelId?.toString() || "",
+                              stageId: lead.stageId?.toString() || "",
+                              street: (lead as any).street || "",
+                              number: (lead as any).number || "",
+                              complement: (lead as any).complement || "",
+                              neighborhood: (lead as any).neighborhood || "",
+                              city: (lead as any).city || "",
+                              state: (lead as any).state || "",
+                              zipCode: (lead as any).zipCode || "",
+                              customFields: lead.customFields || {}
                              });
                              setIsDialogOpen(true);
                            }}
@@ -1175,7 +1189,7 @@ export default function Leads() {
 
       {/* Dialog para Novo Lead / Edição */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLead ? "Editar Lead" : "Adicionar Novo Lead"}</DialogTitle>
             <DialogDescription>
@@ -1280,6 +1294,84 @@ export default function Leads() {
                   setFormData({ ...formData, value: Number(e.target.value) })
                 }
               />
+            </div>
+
+            {/* Endereço */}
+            <div className="pt-4 border-t space-y-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Endereço do Lead</p>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="street">Rua / Logradouro</Label>
+                  <Input
+                    id="street"
+                    placeholder="Av. Paulista"
+                    value={formData.street}
+                    onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="number">Número</Label>
+                  <Input
+                    id="number"
+                    placeholder="1000"
+                    value={formData.number}
+                    onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="complement">Complemento</Label>
+                  <Input
+                    id="complement"
+                    placeholder="Apto 42"
+                    value={formData.complement}
+                    onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="neighborhood">Bairro</Label>
+                  <Input
+                    id="neighborhood"
+                    placeholder="Bela Vista"
+                    value={formData.neighborhood}
+                    onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="city">Cidade</Label>
+                  <Input
+                    id="city"
+                    placeholder="São Paulo"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">Estado</Label>
+                  <Input
+                    id="state"
+                    placeholder="SP"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="zipCode">CEP</Label>
+                <Input
+                  id="zipCode"
+                  placeholder="01310-100"
+                  value={formData.zipCode}
+                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                />
+              </div>
             </div>
 
             {/* Custom Fields */}
