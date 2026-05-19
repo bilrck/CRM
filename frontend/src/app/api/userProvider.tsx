@@ -211,8 +211,11 @@ export function useWorkspace() {
 }
 
 export function useUserLoaded() {
-  const user = useUser();
-  return user !== undefined; // true quando carregado
+  const context = useContext(UserContext);
+  // user === undefined → ainda carregando
+  // user === null     → carregado, não autenticado
+  // user === {...}    → carregado, autenticado
+  return context?.user !== undefined; // true apenas quando a carga terminou (null ou objeto)
 }
 
 export function useSystemConfig() {

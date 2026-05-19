@@ -2,20 +2,33 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  console.log("MIDDLEWARE EXECUTOU:", req.nextUrl.pathname);
   const token = req.cookies.get("token")?.value;
+  const pathname = req.nextUrl.pathname;
 
-  const isAuthPage = req.nextUrl.pathname.startsWith("/login");
-  const isPublic = ["/login", "/register", "/"].includes(req.nextUrl.pathname);
+  const isAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/change-password") ||
+    pathname.startsWith("/invite");
 
-  // Se NÃO tiver token → bloquear páginas privadas
-  if (!token && !isPublic) {
+  const isPublicPage = pathname === "/" || isAuthPage;
+
+  // Usuário NÃO autenticado tentando acessar página protegida → redireciona para login
+  if (!token && !isPublicPage) {
     const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Se tiver token e estiver na Home, manda pro Dashboard (Opcional)
-  if (token && req.nextUrl.pathname === "/") {
+  // Usuário JÁ autenticado tentando acessar página de auth (login, register) → redireciona para dashboard
+  if (token && isAuthPage) {
+    const dashboardUrl = new URL("/dashboard", req.url);
+    return NextResponse.redirect(dashboardUrl);
+  }
+
+  // Usuário autenticado na raiz → redireciona para dashboard
+  if (token && pathname === "/") {
     const dashboardUrl = new URL("/dashboard", req.url);
     return NextResponse.redirect(dashboardUrl);
   }
@@ -25,11 +38,13 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/marketing/:path*",
-    "/leads/:path*",
-    "/users/:path*",
-    "/login",
+    /*
+     * Aplica o middleware em todas as rotas exceto:
+     * - _next/static (arquivos estáticos)
+     * - _next/image (otimização de imagens)
+     * - favicon.ico
+     * - api routes internas do Next.js
+     */
+    "/((?!_next/static|_next/image|favicon.ico|api/).*)",
   ],
 };
-
