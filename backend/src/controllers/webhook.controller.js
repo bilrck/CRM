@@ -8,7 +8,11 @@ export const receiveWebhook = async (req, res) => {
     const { uniqueId } = req.params;
     const payload = req.body;
 
-    console.log(`Webhook recebido [${uniqueId}]:`, payload);
+    const eventType = payload.type || payload.event;
+    if (eventType !== "connection.update" && eventType !== "CONNECTION_UPDATE") {
+      // Evita spam de logs de connection.update em loop do Evolution
+      console.log(`Webhook recebido [${uniqueId}]:`, payload);
+    }
 
     // Buscar conexão pela instância (Evolution)
     const connection = await prisma.connection.findFirst({
@@ -25,7 +29,7 @@ export const receiveWebhook = async (req, res) => {
     }
 
     // 🔥 Evento de Status da Conexão (Evolution)
-    if (payload.type === "connection.update") {
+    if (payload.type === "connection.update" || payload.event === "connection.update" || payload.event === "CONNECTION_UPDATE") {
       const { state } = payload.data;
       // state: close, connecting, open, refused
       let newStatus = connection.status;
@@ -76,8 +80,7 @@ export const receiveWebhook = async (req, res) => {
       return res.json({ success: true });
     }
 
-    const eventType = payload.type || payload.event;
-    console.log(`[Webhook] Evento: ${eventType}, UniqueId: ${uniqueId}`);
+    // Ocultado log repetido
 
     if (
       eventType === "messages.upsert" ||

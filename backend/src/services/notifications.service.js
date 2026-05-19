@@ -68,6 +68,10 @@ export const sendWhatsAppNotification = async (userId, workspaceId, title, messa
     // Clean phone number of spaces, hyphens, and parentheses (keep group JIDs intact)
     if (!target.endsWith('@g.us')) {
       target = target.replace(/\D/g, '');
+      // Se for um número no Brasil sem o DDI (10 ou 11 dígitos), adiciona 55
+      if (target.length === 10 || target.length === 11) {
+        target = `55${target}`;
+      }
     }
 
     // 3. Send Message
@@ -157,7 +161,7 @@ export const notifyUser = async ({
     }
 
     // 4. Email Channel
-    if (isEnabled('email', eventKey)) {
+    if (eventKey !== "message" && isEnabled('email', eventKey)) {
       try {
         await sendMail(
           user.email,

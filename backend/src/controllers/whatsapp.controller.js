@@ -412,9 +412,13 @@ export const sendWhatsappMessage = async (req, res) => {
       }
     } else if (phone) {
       // Formatar JID
-      const cleanPhone = phone.replace(/\D/g, "");
+      let cleanPhone = phone.replace(/\D/g, "");
       if (!cleanPhone) {
         return res.status(400).json({ error: "Telefone inválido" });
+      }
+      // Adicionar DDI do Brasil automaticamente se faltar
+      if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+        cleanPhone = `55${cleanPhone}`;
       }
       const remoteJid = `${cleanPhone}@s.whatsapp.net`;
 
